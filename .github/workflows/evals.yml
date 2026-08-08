@@ -1,0 +1,85 @@
+# Rebanada 04 — harness de evaluación del prompt.
+#
+# SEGURIDAD (repo público): este workflow usa un secreto. Por diseño, los workflows
+# disparados por `pull_request` desde un fork NO reciben secretos. Ese comportamiento es
+# la protección, así que:
+#   - NO agregues `pull_request` a los triggers.
+#   - NO uses `pull_request_target` con checkout del código del fork (exfiltración conocida).
+#   - Los PRs externos corren solo lint/typecheck/test en ci.yml, sin secretos.
+#
+# El golden set vive en el repo PRIVADO taller-content y se clona con un token de solo
+# lectura. Nunca se sube a este repo: contiene dibujos de un menor.
+
+name: evals
+
+on:
+  push:
+    branches: ["main", "slice/**"]
+    paths:
+      - "prompts/**"
+      - "packages/rubric/**"
+      - "services/evaluator/**"
+      - ".github/workflows/evals.yml"
+  workflow_dispatch:
+    inputs:
+      prompt_version:
+        description: "Archivo de prompt a evaluar"
+        default: "prompts/evaluator.v1.md"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evals-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: evals          # requiere aprobación configurada en Settings > Environments
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clonar golden set (repo privado)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/taller-content
+          token: ${{ secrets.CONTENT_REPO_TOKEN }}
+          path: content
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen --directory services/evaluator
+
+      - name: Correr evals contra el golden set
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_MODEL: claude-sonnet-5
+          # ../../ porque `uv run --directory services/evaluator` cambia el cwd real del
+          # proceso a services/evaluator (verificado corriendo el harness manualmente) —
+          # sin esto, render_prompt() no encuentra el archivo y evals.run truena.
+          PROMPT_PATH: ../../${{ github.event.inputs.prompt_version || 'prompts/evaluator.v1.md' }}
+        run: |
+          uv run --directory services/evaluator python -m evals.run \
+            --golden ../../content/golden \
+            --schema ../../packages/rubric/rubric.schema.json \
+            --out ../../evals-report.json
+
+      # Umbrales de aceptación. Si no pasan, el prompt no se mergea.
+      #   exact_match >= 0.70    coincidencia exacta de nivel por criterio
+      #   mae         <= 0.40    error absoluto medio en la escala 1-4
+      #   over_by_2   == 0       inflar dos niveles es falla dura: enseña a Jorge que su
+      #                          propio juicio no sirve
+      #   tone_violations == 0   >3 puntos, "está mal", elogio vacío, falta de ubicación,
+      #                          micro-ejercicio ausente
+      - name: Verificar umbrales
+        run: uv run --directory services/evaluator python -m evals.gate ../../evals-report.json
+
+      - name: Publicar reporte
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evals-report
+          path: evals-report.json
+          retention-days: 30

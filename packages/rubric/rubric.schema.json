@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://taller.local/schemas/rubric-v1.json",
+  "title": "Rúbrica de evaluación de ilustración — v1",
+  "description": "Fuente única de verdad. Los tipos de Zod (TS) y Pydantic (Python) se generan desde este archivo. No escribir esos tipos a mano.",
+  "version": "1.0.0",
+  "$defs": {
+    "criterio": {
+      "type": "string",
+      "enum": [
+        "trazo_linea",
+        "proporcion_escala",
+        "valor_luz_sombra",
+        "textura",
+        "composicion",
+        "espacio_perspectiva",
+        "color",
+        "narrativa_expresion"
+      ]
+    },
+    "nivel": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4,
+      "description": "1 inicial, 2 en progreso, 3 sólido, 4 destacado"
+    },
+    "evaluacionCriterio": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["criterio", "nivel", "evidencia"],
+      "properties": {
+        "criterio": { "$ref": "#/$defs/criterio" },
+        "nivel": { "$ref": "#/$defs/nivel" },
+        "evidencia": {
+          "type": "string",
+          "minLength": 15,
+          "maxLength": 240,
+          "description": "Debe señalar DÓNDE en el dibujo. Sin ubicación no es evidencia."
+        }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "tecnica",
+    "criterios_foco",
+    "lo_que_funciona",
+    "lo_que_sigue",
+    "micro_ejercicio",
+    "huella_estilo",
+    "bandera_para_papa",
+    "calidad_foto"
+  ],
+  "properties": {
+    "tecnica": {
+      "type": "string",
+      "enum": [
+        "grafito_linea",
+        "grafito_valor",
+        "tinta",
+        "lapiz_color",
+        "acuarela",
+        "linea_tecnica",
+        "tecnica_mixta",
+        "comic"
+      ]
+    },
+    "criterios_foco": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "description": "Solo los criterios en foco de la semana, menos los desactivados por modo fallback.",
+      "items": { "$ref": "#/$defs/evaluacionCriterio" }
+    },
+    "lo_que_funciona": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 220,
+      "description": "UNA frase, específica y ubicada. Prohibido genérico ('qué bonito', 'buen trabajo')."
+    },
+    "lo_que_sigue": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 220,
+      "description": "UNA corrección accionable. Prohibido 'está mal' y prohibido comparar con profesionales."
+    },
+    "micro_ejercicio": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["instruccion", "minutos"],
+      "properties": {
+        "instruccion": { "type": "string", "minLength": 20, "maxLength": 220 },
+        "minutos": { "type": "integer", "minimum": 3, "maximum": 10 }
+      }
+    },
+    "huella_estilo": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 3,
+      "description": "Rasgos recurrentes observados. NO se califican. Se acumulan para el capítulo final 'Tu huella'.",
+      "items": { "type": "string", "minLength": 5, "maxLength": 120 }
+    },
+    "bandera_para_papa": {
+      "type": ["string", "null"],
+      "maxLength": 300,
+      "description": "Se llena solo si el problema requiere demostración física (tomar el lápiz, presión del pincel, postura). En cualquier otro caso: null."
+    },
+    "calidad_foto": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["usable", "problemas"],
+      "properties": {
+        "usable": { "type": "boolean" },
+        "problemas": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["muy_oscura", "reflejo_brillo", "fuera_de_foco", "papel_curvo", "recortada", "muy_pequena", "sombra_de_mano"]
+          }
+        }
+      },
+      "description": "Si usable=false, el BFF NO persiste calificación: pide otra foto con la guía de encuadre."
+    }
+  },
+  "x-descriptores": {
+    "trazo_linea": {
+      "1": "Trazo dudoso, muchos repasos sobre la misma línea",
+      "2": "Línea continua pero de grosor uniforme y sin intención",
+      "3": "Línea segura, algún cambio de grosor",
+      "4": "Jerarquía de grosor deliberada: contorno, interior, detalle, fondo"
+    },
+    "proporcion_escala": {
+      "1": "Partes que no coinciden entre sí",
+      "2": "Alguna relación correcta, otras evidentemente fuera",
+      "3": "Proporciones creíbles en casi todo",
+      "4": "Relaciones correctas y consistentes en todo el dibujo"
+    },
+    "valor_luz_sombra": {
+      "1": "Todo plano, o todo del mismo tono",
+      "2": "Dos tonos: claro y oscuro",
+      "3": "Tres o más valores con dirección de luz reconocible",
+      "4": "Cuatro o más valores, luz coherente, transición suave"
+    },
+    "textura": {
+      "1": "Superficies vacías",
+      "2": "Textura intentada en una zona",
+      "3": "Al menos dos texturas distinguibles entre sí",
+      "4": "La textura describe el material: se imagina al tacto"
+    },
+    "composicion": {
+      "1": "Todo al centro, o cortado por el borde sin intención",
+      "2": "Ocupa la hoja pero sin decisión de dónde",
+      "3": "Uso consciente del espacio",
+      "4": "El vacío también está usado a propósito"
+    },
+    "espacio_perspectiva": {
+      "1": "Objetos flotando sin suelo",
+      "2": "Hay suelo pero sin profundidad",
+      "3": "Profundidad creíble por tamaño y traslape",
+      "4": "Fugas consistentes; el espacio se sostiene"
+    },
+    "color": {
+      "1": "Colores sin relación entre sí",
+      "2": "Colores locales correctos, aplicados planos",
+      "3": "Paleta con alguna decisión de armonía",
+      "4": "Paleta y temperatura elegidas a propósito"
+    },
+    "narrativa_expresion": {
+      "1": "Se ve, no se entiende",
+      "2": "Se entiende con explicación",
+      "3": "Cuenta algo por sí solo",
+      "4": "Cuenta algo y genera una emoción sin texto"
+    }
+  }
+}

@@ -1,0 +1,30 @@
+# El repo es público. content/ es el punto de montaje del repo privado taller-content
+# en runtime (dibujos de Jorge, golden set, currículo con datos del menor) — nunca se versiona aquí.
+content/*
+!content/.gitkeep
+
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+
+# build de la PWA: lo produce CI, no se versiona
+apps/web/dist/
+
+# Código generado de rúbrica (Zod + Pydantic) — regenerar con pnpm gen:rubric
+packages/rubric/generated/
+
+# Tipos generados del SDL de GraphQL — regenerar con pnpm gen:graphql
+packages/shared/src/generated/
+
+# Salida de `pnpm evals` — la sube CI como artifact, no se versiona
+evals-report.json
+
+# Python (services/evaluator)
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/

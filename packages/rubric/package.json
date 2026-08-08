@@ -1,0 +1,21 @@
+{
+  "name": "@taller/rubric",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "gen:zod": "tsx scripts/gen-zod.ts",
+    "gen:pydantic": "uvx --from datamodel-code-generator datamodel-codegen --input rubric.schema.json --input-file-type jsonschema --output-model-type pydantic_v2.BaseModel --class-name RubricOutput --output generated/rubric_models.py --disable-timestamp --collapse-root-models",
+    "gen:rubric": "pnpm run gen:zod && pnpm run gen:pydantic",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "json-schema-to-zod": "^2.0.0",
+    "typescript": "^5.3.0",
+    "tsx": "^4.7.0",
+    "vitest": "^2.0.0"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "taller-engine",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "gen:rubric": "pnpm --filter @taller/rubric run gen:rubric",
+    "gen:graphql": "pnpm --filter @taller/shared run gen:graphql",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "lint": "pnpm -r --if-present run lint",
+    "test": "pnpm -r --if-present run test",
+    "evals": "uv run --directory services/evaluator python -m evals.run --golden ../../content/golden --schema ../../packages/rubric/rubric.schema.json --out ../../evals-report.json"
+  }
+}

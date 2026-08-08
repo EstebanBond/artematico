@@ -1,0 +1,8 @@
+.git
+**/node_modules
+**/dist
+content/
+*.md
+.env
+.env.*
+!.env.example

@@ -1,0 +1,173 @@
+# Rebanada 12 — deploy: tag -> build -> GHCR -> SSH al droplet -> migración -> up.
+#
+# SEGURIDAD (repo público): igual que evals.yml, este workflow usa secretos —
+# NUNCA agregues `pull_request` a los triggers, NUNCA uses `pull_request_target`
+# con checkout del código del fork. Solo corre por push de tag o disparo manual.
+#
+# ROLLBACK (documentado, ver también docs/DEPLOY.md):
+#   1. Encuentra el tag anterior conocido-bueno: `git tag --sort=-creatordate | head -5`
+#      (o la lista de tags en GitHub). Las imágenes viejas siguen en GHCR, no se borran.
+#   2. Re-dispara este workflow manualmente (pestaña Actions -> deploy -> Run workflow)
+#      con `tag` = el tag anterior. Vuelve a correr el pipeline completo (incluida la
+#      migración, que es segura de re-correr: `prisma migrate deploy` nunca revierte,
+#      solo aplica pendientes — si el tag anterior no tiene migraciones nuevas, no hace
+#      nada) y deja el droplet corriendo esa versión.
+#   3. Si el workflow mismo está roto, hazlo a mano por SSH:
+#        cd <DROPLET_APP_DIR>
+#        GHCR_OWNER=<owner> TALLER_VERSION=<tag-anterior> docker compose pull
+#        GHCR_OWNER=<owner> TALLER_VERSION=<tag-anterior> docker compose up -d
+#
+# Secretos requeridos (Settings > Secrets and variables > Actions):
+#   DROPLET_HOST, DROPLET_USER, DROPLET_SSH_KEY — acceso SSH al droplet.
+# Variables requeridas (Settings > Secrets and variables > Actions > Variables):
+#   DROPLET_APP_DIR — ruta absoluta del repo clonado en el droplet (ej. /root/taller-engine).
+# El GITHUB_TOKEN automático basta para autenticar contra GHCR (no hace falta PAT).
+#
+# Gate: el job `deploy` usa `environment: production` — requiere aprobación manual de
+# un reviewer, configurada en Settings > Environments > production. Sin esa
+# configuración, el job corre sin pausa (configúralo antes del primer deploy real).
+
+name: deploy
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag a desplegar (ej. v1.2.3). Vacío = usa el tag que disparó el workflow."
+        required: false
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false # nunca cancelar un deploy a medias
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolver versión a taggear
+        id: version
+        run: |
+          VERSION="${{ github.event.inputs.tag || github.ref_name }}"
+          if [ -z "$VERSION" ]; then
+            echo "::error::No se pudo resolver la versión (ni input.tag ni github.ref_name)"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login a GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build + push evaluator
+        uses: docker/build-push-action@v6
+        with:
+          context: ./services/evaluator
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/taller-evaluator:${{ steps.version.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/taller-evaluator:latest
+
+      - name: Build + push bff
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/bff/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/taller-bff:${{ steps.version.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/taller-bff:latest
+
+      - name: Build + push web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/taller-web:${{ steps.version.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/taller-web:latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production # gate: requiere aprobación manual, ver Settings > Environments
+    steps:
+      - name: Migrar + desplegar en el droplet
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DROPLET_HOST }}
+          username: ${{ secrets.DROPLET_USER }}
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          envs: GHCR_OWNER,TALLER_VERSION
+          script: |
+            set -euo pipefail
+            cd "${{ vars.DROPLET_APP_DIR }}"
+
+            export GHCR_OWNER="${{ github.repository_owner }}"
+            export TALLER_VERSION="${{ needs.build-and-push.outputs.version }}"
+
+            # docker-compose.yml e infra/nginx.conf viven en git, no en la imagen —
+            # sin este paso, el droplet seguiría usando la versión vieja de esos
+            # archivos aunque las imágenes se actualicen. Nos paramos exactamente
+            # en el tag que se está desplegando (no en main), para que el config
+            # que corre sea el mismo que se etiquetó y construyó arriba.
+            echo "--- actualizando docker-compose.yml / infra/nginx.conf a ${TALLER_VERSION} ---"
+            git fetch --tags --force
+            git checkout "${TALLER_VERSION}"
+
+            # Persiste la versión desplegada en .env — así un `docker compose up -d`
+            # corrido a mano en el droplet (ej. tras un reboot) sigue apuntando a lo
+            # mismo, sin depender de que alguien recuerde exportar la env var.
+            if grep -q '^TALLER_VERSION=' .env 2>/dev/null; then
+              sed -i "s/^TALLER_VERSION=.*/TALLER_VERSION=${TALLER_VERSION}/" .env
+            else
+              echo "TALLER_VERSION=${TALLER_VERSION}" >> .env
+            fi
+            if ! grep -q '^GHCR_OWNER=' .env 2>/dev/null; then
+              echo "GHCR_OWNER=${GHCR_OWNER}" >> .env
+            fi
+
+            echo "--- migrando base de datos (imagen nueva: ${TALLER_VERSION}) ---"
+            docker compose pull bff
+            docker compose run --rm bff npx prisma migrate deploy
+
+            echo "--- desplegando ---"
+            docker compose pull
+            docker compose up -d
+
+            echo "--- esperando healthchecks ---"
+            sleep 20
+            docker compose ps
+
+            for svc in postgres redis evaluator bff web; do
+              status=$(docker inspect -f '{{.State.Health.Status}}' "taller-${svc}" 2>/dev/null || echo "sin-healthcheck")
+              echo "$svc: $status"
+              if [ "$status" = "unhealthy" ]; then
+                echo "::error::$svc quedó unhealthy tras el deploy de ${TALLER_VERSION}. Ver docs/DEPLOY.md para el rollback."
+                exit 1
+              fi
+            done
+
+      - name: Smoke test público (fuera del droplet, vía Traefik)
+        run: |
+          set -e
+          curl -sf --max-time 10 https://taller.sikno.com.mx/health
+          curl -sf --max-time 10 https://api-taller.sikno.com.mx/health
+          echo "OK: ambos health checks públicos responden"

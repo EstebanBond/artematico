@@ -1,0 +1,49 @@
+{
+  "name": "taller-bff",
+  "version": "0.1.0",
+  "description": "Backend for frontend service for taller illustration platform",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc && cp src/schema.graphql dist/schema.graphql",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "postinstall": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "express": "^4.19.0",
+    "@prisma/client": "^5.20.0",
+    "prisma": "^5.20.0",
+    "multer": "^1.4.5-lts.1",
+    "express-rate-limit": "^7.4.0",
+    "@apollo/server": "^4.11.0",
+    "graphql": "^16.9.0",
+    "cors": "^2.8.5",
+    "bullmq": "^5.28.0",
+    "ioredis": "^5.4.1",
+    "cookie-parser": "^1.4.7",
+    "js-yaml": "^4.1.0",
+    "pdfkit": "^0.15.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.0.0",
+    "@types/multer": "^1.4.12",
+    "@types/cookie-parser": "^1.4.7",
+    "@types/js-yaml": "^4.0.9",
+    "@types/pdfkit": "^0.13.4",
+    "typescript": "^5.3.0",
+    "tsx": "^4.7.0",
+    "vitest": "^2.0.0",
+    "testcontainers": "^10.13.0",
+    "supertest": "^7.0.0",
+    "@types/supertest": "^6.0.2",
+    "@types/cors": "^2.8.17",
+    "@graphql-codegen/cli": "^5.0.3",
+    "@graphql-codegen/typescript": "^4.1.0",
+    "@graphql-codegen/typescript-resolvers": "^4.3.0"
+  }
+}

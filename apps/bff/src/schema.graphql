@@ -1,0 +1,112 @@
+# Fuente única de verdad del SDL. packages/shared/src/generated/graphql.ts se
+# genera desde aquí con `pnpm gen:graphql` — nunca escribas esos tipos a mano.
+
+enum SubmissionStatus {
+  uploaded
+  queued
+  evaluating
+  evaluated
+  failed
+}
+
+type Lesson {
+  id: ID!
+  week: Int!
+  dayIndex: Int!
+  technique: String!
+  tema: String!
+  papel: String!
+  consigna: String!
+  criteriosFoco: [String!]!
+  videoUrl: String
+}
+
+type CriterioEvaluacion {
+  criterio: String!
+  nivel: Int!
+  evidencia: String!
+}
+
+type MicroEjercicio {
+  instruccion: String!
+  minutos: Int!
+}
+
+type CalidadFoto {
+  usable: Boolean!
+  problemas: [String!]!
+}
+
+type Evaluation {
+  criteriosFoco: [CriterioEvaluacion!]!
+  loQueFunciona: String!
+  loQueSigue: String!
+  microEjercicio: MicroEjercicio!
+  huellaEstilo: [String!]!
+  banderaParaPapa: String
+  calidadFoto: CalidadFoto!
+  promptSha256: String!
+  model: String!
+  createdAt: String!
+}
+
+type Submission {
+  id: ID!
+  status: SubmissionStatus!
+  objectKey: String!
+  sessionNumber: Int!
+  createdAt: String!
+  evaluation: Evaluation
+}
+
+type TodayResult {
+  lesson: Lesson!
+  recentSubmissions: [Submission!]!
+}
+
+input CriterioRatingInput {
+  criterio: String!
+  nivel: Int!
+}
+
+enum Semaforo {
+  verde
+  amarillo
+  rojo
+}
+
+type CompraPendiente {
+  id: ID!
+  item: String!
+  critical: Boolean!
+  purchaseByDate: String!
+  semaforo: Semaforo!
+  notas: String
+}
+
+type BanderaEscalada {
+  submissionId: ID!
+  sessionNumber: Int!
+  lessonTema: String!
+  texto: String!
+  createdAt: String!
+}
+
+type ParentPanel {
+  banderas: [BanderaEscalada!]!
+  comprasPendientes: [CompraPendiente!]!
+}
+
+type Query {
+  today: TodayResult!
+  submission(id: ID!): Submission
+  # Mismo PIN familiar que todo lo demás — no hay credencial separada de padre.
+  parentPanel: ParentPanel!
+}
+
+type Mutation {
+  # No bloquea hasta que la evaluación termine: encola y devuelve de inmediato
+  # con status "queued". El cliente hace polling de `submission(id)` hasta que
+  # el status llegue a "evaluated" o "failed".
+  submitForEvaluation(submissionId: ID!, ratings: [CriterioRatingInput!]!): Submission!
+}

@@ -1,0 +1,22 @@
+{
+  "tecnica": "grafito_linea",
+  "criterios_foco": [
+    {
+      "criterio": "trazo_linea",
+      "nivel": 2,
+      "evidencia": "El trazo del brazo derecho tiene varios repasos, se nota titubeo en la línea."
+    }
+  ],
+  "lo_que_funciona": "La proporción de la cabeza respecto al cuerpo es consistente en todo el dibujo.",
+  "lo_que_sigue": "Marca primero las líneas guía del brazo antes de trazar el contorno final.",
+  "micro_ejercicio": {
+    "instruccion": "Dibuja diez óvalos rápidos de 30 segundos cada uno sin levantar el lápiz.",
+    "minutos": 5
+  },
+  "huella_estilo": ["Prefiere encuadres cerrados, casi sin fondo."],
+  "bandera_para_papa": null,
+  "calidad_foto": {
+    "usable": true,
+    "problemas": []
+  }
+}

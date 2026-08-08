@@ -1,0 +1,173 @@
+# Rebanada 01. Presupuesto de RAM: ~830 MB en reposo sobre un droplet de 2 GB compartido
+# con otros proyectos (swap ya ~60% en uso en reposo, ver CLAUDE.md).
+# Terminado cuando: `docker compose up -d` deja los 5 servicios healthy, y bff/web quedan
+# enrutados por el Traefik COMPARTIDO del droplet (fuera de este repo, red externa `web_network`).
+# Los límites de memoria van en `mem_limit`/`mem_reservation` (top-level de compose).
+# `deploy.resources.limits` NO aplica fuera de `docker stack deploy`: con `docker compose up -d`
+# plano se ignora en silencio y el contenedor queda sin techo real de RAM.
+#
+# NUNCA construir en el droplet (rebanada 12): este archivo base usa `image:` de GHCR
+# para evaluator/bff/web — es el que se copia al droplet tal cual, sin build local
+# posible. `docker-compose.override.yml` (solo desarrollo, se carga automático junto
+# a este archivo) le agrega `build:` a esos 3 servicios para compilar de fuente en tu
+# máquina. Rollback: cambiar TALLER_VERSION en el .env del droplet al tag anterior y
+# repetir `docker compose pull && docker compose up -d` — ver .github/workflows/deploy.yml.
+#
+# Convenciones alineadas con los demás proyectos del droplet (pch, siknorh):
+# container_name explícito `taller-<servicio>`, labels de Traefik en formato lista.
+# Deliberadamente NO copiadas de esos proyectos (con razón documentada, no por
+# descuido): mem_limit/mem_reservation en todos los servicios, healthchecks en
+# todos los servicios, tuning de Postgres, y env_file en vez de environment: explícito.
+# Ver CLAUDE.md — la razón de cada una está ahí, no son gustos de estilo.
+
+name: taller
+
+services:
+  postgres:
+    container_name: taller-postgres
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: taller
+      POSTGRES_USER: taller
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD}
+    # Tuning de memoria deliberado (ver CLAUDE.md): el droplet ya corre con swap
+    # alto en reposo. Los demás proyectos del droplet usan Postgres/MariaDB sin
+    # tuning porque su tráfico es mínimo — aquí se mantiene por disciplina, no
+    # porque haga falta hoy.
+    command: >
+      postgres
+      -c shared_buffers=128MB
+      -c effective_cache_size=384MB
+      -c max_connections=20
+      -c work_mem=8MB
+      -c maintenance_work_mem=32MB
+      -c wal_compression=on
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taller -d taller"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    mem_limit: 200M
+    mem_reservation: 64M
+
+  redis:
+    container_name: taller-redis
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Es cola, no caché: noeviction para no perder jobs de evaluación.
+    command: redis-server --maxmemory 96mb --maxmemory-policy noeviction --appendonly yes
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    mem_limit: 128M
+    mem_reservation: 32M
+
+  evaluator:
+    container_name: taller-evaluator
+    image: ghcr.io/${GHCR_OWNER:-local}/taller-evaluator:${TALLER_VERSION:-dev}
+    restart: unless-stopped
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?falta ANTHROPIC_API_KEY}
+      ANTHROPIC_MODEL: claude-sonnet-5
+      PROMPT_PATH: /app/prompts/evaluator.v1.md
+      RUBRIC_SCHEMA_PATH: /app/rubric/rubric.schema.json
+      MAX_IMAGE_LONG_EDGE: "1568"        # límite de resolución nativa del tier estándar
+      WEB_CONCURRENCY: "1"
+    volumes:
+      - ./prompts:/app/prompts:ro
+      - ./packages/rubric:/app/rubric:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    mem_limit: 256M
+    mem_reservation: 96M
+    # La API key NUNCA sale de aquí (regla dura, CLAUDE.md): por eso este servicio
+    # NO usa env_file: .env como backend/bot de los otros proyectos del droplet —
+    # env_file inyectaría TODAS las variables del .env (incluidas FAMILY_PIN,
+    # COOKIE_SECRET, POSTGRES_PASSWORD) en un contenedor que no debe tenerlas.
+    # Sin puertos publicados: solo el bff le habla.
+
+  bff:
+    container_name: taller-bff
+    image: ghcr.io/${GHCR_OWNER:-local}/taller-bff:${TALLER_VERSION:-dev}
+    restart: unless-stopped
+    environment:
+      NODE_OPTIONS: --max-old-space-size=280
+      DATABASE_URL: postgres://taller:${POSTGRES_PASSWORD}@postgres:5432/taller?connection_limit=6
+      REDIS_URL: redis://redis:6379
+      EVALUATOR_URL: http://evaluator:8000
+      CONTENT_DIR: /content
+      UPLOAD_DIR: /uploads
+      MAX_EVALS_PER_DAY: "3"
+      ALLOWED_ORIGIN: https://taller.sikno.com.mx
+      NODE_ENV: production
+      # PIN familiar compartido (nunca por cuenta individual) y secreto para firmar
+      # la cookie de sesión httpOnly que abre. Ninguno de los dos vive en el repo.
+      FAMILY_PIN: ${FAMILY_PIN:?falta FAMILY_PIN}
+      COOKIE_SECRET: ${COOKIE_SECRET:?falta COOKIE_SECRET}
+    volumes:
+      - ./content:/content:ro            # en prod: montado desde el repo privado taller-content
+      - uploads:/uploads
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      evaluator: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    mem_limit: 320M
+    mem_reservation: 128M
+    networks:
+      - default
+      - web_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.taller-bff.rule=Host(`api-taller.sikno.com.mx`)"
+      - "traefik.http.routers.taller-bff.entrypoints=websecure"
+      - "traefik.http.routers.taller-bff.tls=true"
+      - "traefik.http.routers.taller-bff.tls.certresolver=myresolver"
+      - "traefik.http.services.taller-bff.loadbalancer.server.port=4000"
+
+  web:
+    container_name: taller-web
+    image: ghcr.io/${GHCR_OWNER:-local}/taller-web:${TALLER_VERSION:-dev}
+    restart: unless-stopped
+    depends_on:
+      bff: { condition: service_healthy }
+    healthcheck:
+      # 127.0.0.1 explícito: "localhost" puede resolver primero a ::1 en el contenedor.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    mem_limit: 48M
+    mem_reservation: 16M
+    networks:
+      - web_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.taller-web.rule=Host(`taller.sikno.com.mx`)"
+      - "traefik.http.routers.taller-web.entrypoints=websecure"
+      - "traefik.http.routers.taller-web.tls=true"
+      - "traefik.http.routers.taller-web.tls.certresolver=myresolver"
+      - "traefik.http.services.taller-web.loadbalancer.server.port=80"
+
+volumes:
+  pgdata:
+  redisdata:
+  uploads:          # los dibujos de Jorge. Respaldo diario a Spaces. NUNCA `down -v`.
+
+networks:
+  web_network:
+    external: true   # el Traefik compartido del droplet ya la crea; este repo no la administra

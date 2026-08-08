@@ -1,0 +1,79 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SubmissionStatus {
+  uploaded
+  queued
+  evaluating
+  evaluated
+  failed
+}
+
+model Lesson {
+  id                      String   @id @default(cuid())
+  week                    Int
+  dayIndex                Int
+  technique               String
+  tema                    String
+  papel                   String
+  consigna                String
+  criteriosFoco           String[]
+  fallbackDisableCriteria String[] @default([])
+  videoUrl                String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  submissions             Submission[]
+
+  @@unique([week, dayIndex])
+}
+
+model Submission {
+  id             String            @id @default(cuid())
+  idempotencyKey String            @unique
+  objectKey      String
+  sessionNumber  Int
+  status         SubmissionStatus  @default(uploaded)
+  lessonId       String
+  lesson         Lesson            @relation(fields: [lessonId], references: [id])
+  selfAssessment SelfAssessment?
+  evaluation     Evaluation?
+  styleTraits    StyleTrait[]
+  createdAt      DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+model SelfAssessment {
+  id           String     @id @default(cuid())
+  submissionId String     @unique
+  submission   Submission @relation(fields: [submissionId], references: [id])
+  ratings      Json
+  createdAt    DateTime   @default(now())
+}
+
+model Evaluation {
+  id                String     @id @default(cuid())
+  submissionId      String     @unique
+  submission        Submission @relation(fields: [submissionId], references: [id])
+  rubricJson        Json
+  promptSha256      String
+  model             String
+  banderaParaPapa   String?
+  calidadFotoUsable Boolean
+  createdAt         DateTime   @default(now())
+}
+
+model StyleTrait {
+  id           String     @id @default(cuid())
+  submissionId String
+  submission   Submission @relation(fields: [submissionId], references: [id])
+  text         String
+  createdAt    DateTime   @default(now())
+}

@@ -1,0 +1,31 @@
+# SOLO PARA DESARROLLO LOCAL. Docker Compose lo carga automáticamente junto a
+# docker-compose.yml cuando ambos están en el mismo directorio — no requiere flags.
+# NUNCA copiar este archivo al droplet.
+
+services:
+  postgres:
+    # Expone Postgres en localhost para correr `prisma migrate dev` desde el host
+    # (fuera de Docker) durante desarrollo. En producción Postgres se queda solo
+    # en la red interna (sin puertos publicados), tal como está en docker-compose.yml.
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  # docker-compose.yml (base) define evaluator/bff/web con `image:` de GHCR — es el
+  # archivo que se copia tal cual al droplet, sin build local posible ahí (regla
+  # dura: nunca compilar en el droplet). Estos 3 overrides le agregan `build:` SOLO
+  # para desarrollo local: cuando ambas claves están presentes, Compose construye
+  # desde `build:` y etiqueta el resultado con el nombre de `image:` — así que
+  # `docker compose up -d`/`build` en tu máquina compila de fuente como siempre,
+  # sin necesitar GHCR_OWNER/TALLER_VERSION reales (usa los defaults de abajo).
+  evaluator:
+    build: ./services/evaluator
+
+  bff:
+    build:
+      context: .
+      dockerfile: apps/bff/Dockerfile
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
