@@ -197,6 +197,9 @@ jobs:
             docker compose pull bff
             docker compose run --rm bff npx prisma migrate deploy
 
+            echo "--- sembrando currículo desde content/curriculum.yaml (idempotente) ---"
+            docker compose run --rm bff node dist/seedCurriculum.js
+
             echo "--- desplegando ---"
             docker compose pull
             docker compose up -d
