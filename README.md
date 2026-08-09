@@ -102,3 +102,7 @@ verificable: infraestructura → rúbrica calibrada → servicio de evaluación 
 cola asíncrona → API GraphQL → PWA → panel de padre → deploy → paquete de
 impresión. Ver [`CLAUDE.md`](CLAUDE.md) para el detalle rebanada por rebanada y
 las reglas de arquitectura del proyecto.
+
+## Licencia
+
+[MIT](LICENSE).
