@@ -14,11 +14,18 @@ lógica real vive en el workflow, comentada ahí también.
 4. El job `deploy` queda pausado esperando aprobación manual (ver
    [Gate de aprobación](#gate-de-aprobación) abajo). Un reviewer lo aprueba desde
    la pestaña Actions.
-5. Al aprobar: SSH al droplet, corre `prisma migrate deploy` con la imagen
+5. Al aprobar: primero se genera `rubric_models.py`/`rubric.zod.ts` (Pydantic +
+   Zod, desde `rubric.schema.json`) en el runner de CI y se copian por `scp` a
+   `DROPLET_APP_DIR/packages/rubric/generated/` — ese directorio está en
+   `.gitignore` (es código generado) y el `evaluator` lo necesita vía bind
+   mount (ver `docker-compose.yml`), así que nunca queda ahí solo con el
+   `git checkout`. Nunca se genera en el droplet mismo (regla dura: nunca
+   compilar ahí).
+6. Luego, SSH al droplet: corre `prisma migrate deploy` con la imagen
    nueva del bff, luego `docker compose pull && docker compose up -d`, espera
    20s y confirma que los 5 servicios reporten `healthy`. Si alguno no lo hace,
    el job falla explícitamente (no se queda "verde" con algo roto).
-6. Un smoke test final golpea `https://taller.sikno.com.mx/health` y
+7. Un smoke test final golpea `https://taller.sikno.com.mx/health` y
    `https://api-taller.sikno.com.mx/health` desde fuera del droplet (a través del
    Traefik compartido), confirmando que el dominio público responde de verdad.
 
