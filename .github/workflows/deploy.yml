@@ -52,6 +52,7 @@ jobs:
     timeout-minutes: 20
     outputs:
       version: ${{ steps.version.outputs.version }}
+      owner: ${{ steps.owner.outputs.owner }}
     steps:
       - uses: actions/checkout@v4
 
@@ -64,6 +65,10 @@ jobs:
             exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Normalizar owner de GHCR (los nombres de imagen deben ir en minúsculas)
+        id: owner
+        run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v3
 
@@ -80,8 +85,8 @@ jobs:
           context: ./services/evaluator
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/taller-evaluator:${{ steps.version.outputs.version }}
-            ghcr.io/${{ github.repository_owner }}/taller-evaluator:latest
+            ghcr.io/${{ steps.owner.outputs.owner }}/taller-evaluator:${{ steps.version.outputs.version }}
+            ghcr.io/${{ steps.owner.outputs.owner }}/taller-evaluator:latest
 
       - name: Build + push bff
         uses: docker/build-push-action@v6
@@ -90,8 +95,8 @@ jobs:
           file: apps/bff/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/taller-bff:${{ steps.version.outputs.version }}
-            ghcr.io/${{ github.repository_owner }}/taller-bff:latest
+            ghcr.io/${{ steps.owner.outputs.owner }}/taller-bff:${{ steps.version.outputs.version }}
+            ghcr.io/${{ steps.owner.outputs.owner }}/taller-bff:latest
 
       - name: Build + push web
         uses: docker/build-push-action@v6
@@ -100,8 +105,8 @@ jobs:
           file: apps/web/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/taller-web:${{ steps.version.outputs.version }}
-            ghcr.io/${{ github.repository_owner }}/taller-web:latest
+            ghcr.io/${{ steps.owner.outputs.owner }}/taller-web:${{ steps.version.outputs.version }}
+            ghcr.io/${{ steps.owner.outputs.owner }}/taller-web:latest
 
   deploy:
     needs: build-and-push
@@ -120,7 +125,7 @@ jobs:
             set -euo pipefail
             cd "${{ vars.DROPLET_APP_DIR }}"
 
-            export GHCR_OWNER="${{ github.repository_owner }}"
+            export GHCR_OWNER="${{ needs.build-and-push.outputs.owner }}"
             export TALLER_VERSION="${{ needs.build-and-push.outputs.version }}"
 
             # docker-compose.yml e infra/nginx.conf viven en git, no en la imagen —
