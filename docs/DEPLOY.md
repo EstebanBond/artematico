@@ -59,6 +59,19 @@ lógica real vive en el workflow, comentada ahí también.
   `docker login ghcr.io` una vez en el droplet con un token de lectura
   (`read:packages`). Si el repo es público, los paquetes de GHCR heredan esa
   visibilidad y no hace falta login para *pull*.
+- **`content/curriculum.yaml` no llega por CI** (regla dura: `content/` nunca
+  entra al repo público, así que el pipeline no tiene forma de generarlo ni de
+  copiarlo). Es un paso manual de una sola vez — súbelo por `scp` desde donde
+  sí exista el archivo:
+  ```bash
+  scp -i ~/.ssh/<tu-llave> content/curriculum.yaml root@<droplet>:${DROPLET_APP_DIR}/content/curriculum.yaml
+  ```
+  Como es un archivo sin versionar, `git checkout` en cada deploy no lo toca
+  ni lo borra — una vez ahí, sobrevive a todos los deploys futuros. El seed de
+  lecciones (`docker compose run --rm bff node dist/seedCurriculum.js`, parte
+  del job `deploy`) falla con `ENOENT` si este archivo no está presente.
+  Si el currículo cambia, repite el `scp` y vuelve a correr el seed a mano
+  (o dispara un deploy nuevo, que ya lo hace solo).
 - `docker-compose.override.yml` **nunca** se copia al droplet — es solo para
   desarrollo local (le agrega `build:` a evaluator/bff/web y expone el puerto
   de Postgres). Si por error termina ahí, `docker compose` intentaría compilar
