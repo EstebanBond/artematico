@@ -65,6 +65,11 @@ export function Home({ onNavigate, onLessonLoaded }: HomeProps) {
     return null;
   }
 
+  async function handleLogout() {
+    await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
+    window.location.reload();
+  }
+
   const { lesson, recentSubmissions } = data;
 
   return (
@@ -138,6 +143,9 @@ export function Home({ onNavigate, onLessonLoaded }: HomeProps) {
 
       <button type="button" className="link-button" onClick={() => onNavigate('parent-panel')}>
         Panel de papá
+      </button>
+      <button type="button" className="link-button" onClick={handleLogout}>
+        Cerrar sesión {studentName} (para que otro hermano entre con su PIN)
       </button>
     </div>
   );
