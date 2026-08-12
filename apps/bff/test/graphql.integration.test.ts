@@ -20,7 +20,7 @@ beforeAll(async () => {
 
   const databaseUrl = `postgresql://taller:test@${container.getHost()}:${container.getMappedPort(5432)}/taller_test`;
   process.env.DATABASE_URL = databaseUrl;
-  process.env.FAMILY_PIN = 'test-pin-0000';
+  process.env.STUDENTS = 'test:test-pin-0000:Test';
   process.env.COOKIE_SECRET = 'test-cookie-secret';
 
   execSync('npx prisma migrate deploy', {
@@ -67,7 +67,7 @@ beforeAll(async () => {
   });
 
   await prisma.submission.create({
-    data: { idempotencyKey: 'seed-1', objectKey: 'a.jpg', sessionNumber: 1, lessonId: lesson1.id },
+    data: { idempotencyKey: 'seed-1', objectKey: 'a.jpg', studentId: 'test', sessionNumber: 1, lessonId: lesson1.id },
   });
 }, 60_000);
 

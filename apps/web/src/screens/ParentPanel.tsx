@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { graphqlRequest, AuthError } from '../api/graphql';
-import { PARENT_PANEL_QUERY } from '../api/queries';
-import type { ParentPanelData, Semaforo } from '../api/types';
+import { PARENT_PANEL_QUERY, MARCAR_MATERIAL_MUTATION } from '../api/queries';
+import type { ParentPanelData, MaterialItem, Semaforo } from '../api/types';
 import { MascotBadge } from '../components/MascotBadge';
 
 interface ParentPanelProps {
@@ -14,10 +14,25 @@ const SEMAFORO_CLASS: Record<Semaforo, string> = {
   verde: 'semaforo-verde',
 };
 
+function groupByWeek(materiales: MaterialItem[]): Array<[number | null, MaterialItem[]]> {
+  const groups = new Map<number | null, MaterialItem[]>();
+  for (const material of materiales) {
+    const key = material.week;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(material);
+  }
+  return [...groups.entries()].sort((a, b) => {
+    if (a[0] === null) return -1;
+    if (b[0] === null) return 1;
+    return a[0] - b[0];
+  });
+}
+
 export function ParentPanel({ onNavigate }: ParentPanelProps) {
   const [data, setData] = useState<ParentPanelData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [toggleError, setToggleError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,6 +60,28 @@ export function ParentPanel({ onNavigate }: ParentPanelProps) {
     };
   }, []);
 
+  async function handleToggle(id: string, comprada: boolean) {
+    if (!data) return;
+    setToggleError(null);
+    const previous = data.materiales;
+    setData({
+      ...data,
+      materiales: data.materiales.map((m) =>
+        m.id === id ? { ...m, comprada, semaforo: comprada ? null : m.semaforo } : m,
+      ),
+    });
+    try {
+      await graphqlRequest(MARCAR_MATERIAL_MUTATION, { id, comprada });
+    } catch (err: unknown) {
+      if (err instanceof AuthError) {
+        window.location.reload();
+        return;
+      }
+      setData({ ...data, materiales: previous });
+      setToggleError(err instanceof Error ? err.message : 'No se pudo guardar el cambio');
+    }
+  }
+
   if (loading) {
     return (
       <div className="screen">
@@ -65,7 +102,9 @@ export function ParentPanel({ onNavigate }: ParentPanelProps) {
     return null;
   }
 
-  const { banderas, comprasPendientes } = data;
+  const { banderas, materiales, paquetes } = data;
+  const pendientes = materiales.filter((m) => !m.comprada);
+  const pendientesCriticos = pendientes.filter((m) => m.critical);
 
   return (
     <div className="screen">
@@ -77,9 +116,25 @@ export function ParentPanel({ onNavigate }: ParentPanelProps) {
         ← Volver
       </button>
 
-      <a className="link-button" href="/print-package" download>
-        Descargar paquete de impresión (PDF)
-      </a>
+      <section className="card">
+        <h2>Paquete de impresión</h2>
+        <ul>
+          {paquetes.map((paquete) => (
+            <li key={paquete.studentId}>
+              {paquete.disponible ? (
+                <a className="link-button" href={`/print-package?studentId=${paquete.studentId}`} download>
+                  Descargar paquete de {paquete.studentName} (PDF)
+                </a>
+              ) : (
+                <p className="muted-text">
+                  {paquete.studentName} todavía no tiene sesiones evaluadas — su paquete estará
+                  disponible en cuanto tenga al menos una.
+                </p>
+              )}
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <section className="card">
         <h2>Banderas</h2>
@@ -89,7 +144,7 @@ export function ParentPanel({ onNavigate }: ParentPanelProps) {
           <ul>
             {banderas.map((bandera) => (
               <li key={bandera.submissionId}>
-                Sesión {bandera.sessionNumber} — {bandera.lessonTema}
+                <strong>{bandera.studentName}</strong> — Sesión {bandera.sessionNumber} — {bandera.lessonTema}
                 <br />
                 {bandera.texto}
                 <br />
@@ -102,21 +157,50 @@ export function ParentPanel({ onNavigate }: ParentPanelProps) {
 
       <section className="card">
         <h2>Compras pendientes</h2>
-        <ul>
-          {comprasPendientes.map((compra) => (
-            <li key={compra.id}>
-              <span className={`semaforo-dot ${SEMAFORO_CLASS[compra.semaforo]}`} aria-hidden="true" />
-              {compra.item}
-              {compra.critical && ' (crítico)'} — límite: {compra.purchaseByDate}
-              {compra.notas && (
-                <>
-                  <br />
-                  <small>{compra.notas}</small>
-                </>
-              )}
-            </li>
-          ))}
-        </ul>
+        {pendientesCriticos.length > 0 ? (
+          <p className="alert alert-critical">
+            Faltan {pendientesCriticos.length} material{pendientesCriticos.length === 1 ? '' : 'es'} crítico
+            {pendientesCriticos.length === 1 ? '' : 's'} por comprar.
+          </p>
+        ) : pendientes.length > 0 ? (
+          <p className="alert alert-info">
+            Faltan {pendientes.length} material{pendientes.length === 1 ? '' : 'es'} por comprar (no urgentes).
+          </p>
+        ) : (
+          <p className="alert alert-ok">Ya tienes todo el material.</p>
+        )}
+        {toggleError && <p className="error-text">{toggleError}</p>}
+
+        {groupByWeek(materiales).map(([week, items]) => (
+          <div key={week ?? 'compras'}>
+            <h3>{week === null ? 'Para comprar' : `Semana ${week}`}</h3>
+            <ul>
+              {items.map((material) => (
+                <li key={material.id}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={material.comprada}
+                      onChange={(e) => handleToggle(material.id, e.target.checked)}
+                    />
+                    {material.semaforo && (
+                      <span className={`semaforo-dot ${SEMAFORO_CLASS[material.semaforo]}`} aria-hidden="true" />
+                    )}
+                    {material.item}
+                    {material.critical && ' (crítico)'}
+                    {material.purchaseByDate && ` — límite: ${material.purchaseByDate}`}
+                  </label>
+                  {material.notas && (
+                    <>
+                      <br />
+                      <small>{material.notas}</small>
+                    </>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </section>
     </div>
   );

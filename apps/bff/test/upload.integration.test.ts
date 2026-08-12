@@ -26,7 +26,7 @@ beforeAll(async () => {
   const host = container.getHost();
   const databaseUrl = `postgresql://taller:test@${host}:${port}/taller_test`;
   process.env.DATABASE_URL = databaseUrl;
-  process.env.FAMILY_PIN = 'test-pin-0000';
+  process.env.STUDENTS = 'test:test-pin-0000:Test,test2:test-pin-0001:Test2';
   process.env.COOKIE_SECRET = 'test-cookie-secret';
 
   uploadDir = await fs.mkdtemp(path.join(os.tmpdir(), 'taller-uploads-'));
@@ -145,5 +145,33 @@ describe('POST /upload', () => {
       .field('sessionNumber', '5')
       .attach('image', Buffer.from([0xff, 0xd8, 0xff, 0xdb]), { filename: 'test.jpg', contentType: 'image/jpeg' });
     expect(res.status).toBe(400);
+  });
+
+  it('sessionNumber es independiente por estudiante (dos hermanos subiendo intercalado no comparten numeración)', async () => {
+    const agent2 = request.agent(app);
+    const login2 = await agent2.post('/auth/pin').send({ pin: 'test-pin-0001' });
+    expect(login2.status).toBe(200);
+
+    const upload = (a: typeof agent, key: string) =>
+      a
+        .post('/upload')
+        .set('Idempotency-Key', key)
+        .field('lessonId', lessonId)
+        .attach('image', Buffer.from([0xff, 0xd8, 0xff, 0xdb]), { filename: 'test.jpg', contentType: 'image/jpeg' });
+
+    // Intercalado: hermano 1, hermano 2, hermano 1 de nuevo.
+    const r1a = await upload(agent, 'interleave-test-1a');
+    const r2a = await upload(agent2, 'interleave-test-2a');
+    const r1b = await upload(agent, 'interleave-test-1b');
+
+    const sub1a = await prisma.submission.findUniqueOrThrow({ where: { id: r1a.body.submissionId } });
+    const sub2a = await prisma.submission.findUniqueOrThrow({ where: { id: r2a.body.submissionId } });
+    const sub1b = await prisma.submission.findUniqueOrThrow({ where: { id: r1b.body.submissionId } });
+
+    expect(sub1a.studentId).toBe('test');
+    expect(sub2a.studentId).toBe('test2');
+    // El segundo envío de "test" es su sesión N+1, sin importar cuántas subió
+    // "test2" en medio — cada estudiante tiene su propia numeración.
+    expect(sub1b.sessionNumber).toBe(sub1a.sessionNumber + 1);
   });
 });

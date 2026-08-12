@@ -26,6 +26,7 @@ model Lesson {
   consigna                String
   criteriosFoco           String[]
   fallbackDisableCriteria String[] @default([])
+  materialesExtra         String[] @default([])
   videoUrl                String?
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
@@ -35,10 +36,22 @@ model Lesson {
   @@unique([week, dayIndex])
 }
 
+model MaterialItem {
+  id             String    @id
+  item           String
+  critical       Boolean   @default(false)
+  week           Int?
+  purchaseByDate DateTime?
+  notas          String?
+  comprada       Boolean   @default(false)
+  updatedAt      DateTime  @updatedAt
+}
+
 model Submission {
   id             String            @id @default(cuid())
   idempotencyKey String            @unique
   objectKey      String
+  studentId      String
   sessionNumber  Int
   status         SubmissionStatus  @default(uploaded)
   lessonId       String

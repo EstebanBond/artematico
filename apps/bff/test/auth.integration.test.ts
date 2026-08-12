@@ -21,7 +21,7 @@ beforeAll(async () => {
 
   const databaseUrl = `postgresql://taller:test@${container.getHost()}:${container.getMappedPort(5432)}/taller_test`;
   process.env.DATABASE_URL = databaseUrl;
-  process.env.FAMILY_PIN = 'correct-pin';
+  process.env.STUDENTS = 'jorge:correct-pin:Jorge,georgina:other-pin:Georgina';
   process.env.COOKIE_SECRET = 'test-cookie-secret';
 
   execSync('npx prisma migrate deploy', {
@@ -70,14 +70,15 @@ describe('Gate de PIN familiar', () => {
     expect(res.body.authenticated).toBe(false);
   });
 
-  it('con el PIN correcto abre sesión y desbloquea /graphql y /upload', async () => {
+  it('con el PIN correcto abre sesión, identifica al estudiante y desbloquea /graphql y /upload', async () => {
     const agent = request.agent(app);
 
     const login = await agent.post('/auth/pin').send({ pin: 'correct-pin' });
     expect(login.status).toBe(200);
+    expect(login.body).toEqual({ ok: true, studentId: 'jorge', studentName: 'Jorge' });
 
     const status = await agent.get('/auth/status');
-    expect(status.body.authenticated).toBe(true);
+    expect(status.body).toEqual({ authenticated: true, studentId: 'jorge', studentName: 'Jorge' });
 
     // Ya autenticado, /graphql responde (puede traer su propio error de negocio,
     // pero YA NO debe ser 401 de autenticación).
@@ -85,6 +86,12 @@ describe('Gate de PIN familiar', () => {
       .post('/graphql')
       .send({ query: '{ today { lesson { week } } }' });
     expect(graphqlRes.status).not.toBe(401);
+  });
+
+  it('cada PIN abre la sesión del estudiante correspondiente (dos hermanos, dos PINs distintos)', async () => {
+    const agentGeorgina = request.agent(app);
+    const login = await agentGeorgina.post('/auth/pin').send({ pin: 'other-pin' });
+    expect(login.body).toEqual({ ok: true, studentId: 'georgina', studentName: 'Georgina' });
   });
 
   it('logout invalida la sesión: /graphql vuelve a dar 401', async () => {

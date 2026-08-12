@@ -13,6 +13,7 @@ export interface Lesson {
   papel: string;
   consigna: string;
   criteriosFoco: string[];
+  materialesExtra: string[];
   videoUrl: string | null;
 }
 
@@ -66,24 +67,41 @@ export interface CriterioRatingInput {
 
 export type Semaforo = 'verde' | 'amarillo' | 'rojo';
 
-export interface CompraPendiente {
+export interface MaterialItem {
   id: string;
   item: string;
   critical: boolean;
-  purchaseByDate: string;
-  semaforo: Semaforo;
+  week: number | null;
+  purchaseByDate: string | null;
+  semaforo: Semaforo | null;
   notas: string | null;
+  comprada: boolean;
 }
 
 export interface BanderaEscalada {
   submissionId: string;
+  studentId: string;
+  studentName: string;
   sessionNumber: number;
   lessonTema: string;
   texto: string;
   createdAt: string;
 }
 
+export interface Estudiante {
+  id: string;
+  name: string;
+}
+
+export interface PaqueteEstudiante {
+  studentId: string;
+  studentName: string;
+  disponible: boolean;
+}
+
 export interface ParentPanelData {
+  estudiantes: Estudiante[];
+  paquetes: PaqueteEstudiante[];
   banderas: BanderaEscalada[];
-  comprasPendientes: CompraPendiente[];
+  materiales: MaterialItem[];
 }

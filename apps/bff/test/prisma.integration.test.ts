@@ -46,7 +46,7 @@ describe('Prisma schema (Postgres real vía Testcontainers)', () => {
     const submission = await prisma.submission.create({
       data: {
         idempotencyKey: 'idem-key-001', objectKey: 'uploads/2026/08/06/foto1.jpg',
-        sessionNumber: 1, lessonId: lesson.id,
+        studentId: 'test', sessionNumber: 1, lessonId: lesson.id,
       },
     });
 
@@ -86,11 +86,11 @@ describe('Prisma schema (Postgres real vía Testcontainers)', () => {
       },
     });
     await prisma.submission.create({
-      data: { idempotencyKey: 'dup-key', objectKey: 'a.jpg', sessionNumber: 2, lessonId: lesson.id },
+      data: { idempotencyKey: 'dup-key', objectKey: 'a.jpg', studentId: 'test', sessionNumber: 2, lessonId: lesson.id },
     });
     await expect(
       prisma.submission.create({
-        data: { idempotencyKey: 'dup-key', objectKey: 'b.jpg', sessionNumber: 2, lessonId: lesson.id },
+        data: { idempotencyKey: 'dup-key', objectKey: 'b.jpg', studentId: 'test', sessionNumber: 2, lessonId: lesson.id },
       })
     ).rejects.toThrow();
   });

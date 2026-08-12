@@ -1,6 +1,7 @@
 import { Router, type Router as ExpressRouter } from 'express';
 import PDFDocument from 'pdfkit';
 import { prisma } from './db.js';
+import { findById } from './students.js';
 
 type PDFDoc = InstanceType<typeof PDFDocument>;
 
@@ -13,15 +14,22 @@ interface RubricJson {
 
 export const printPackageRouter: ExpressRouter = Router();
 
-printPackageRouter.get('/print-package', async (_req, res) => {
+printPackageRouter.get('/print-package', async (req, res) => {
   // Handler async directo de Express 4: sin este try/catch, una promesa
   // rechazada (ej. la consulta a Prisma falla) no la captura nadie — la
   // request se queda colgada en vez de recibir una respuesta (mismo patrón
   // de bug ya corregido antes en upload.ts y worker.ts).
   let doc: PDFDoc | undefined;
   try {
+    const studentId = req.query.studentId;
+    const student = typeof studentId === 'string' ? findById(studentId) : undefined;
+    if (!student) {
+      res.status(400).json({ error: 'Falta o es inválido el parámetro studentId' });
+      return;
+    }
+
     const submissions = await prisma.submission.findMany({
-      where: { status: 'evaluated' },
+      where: { status: 'evaluated', studentId: student.id },
       include: { lesson: true, selfAssessment: true, evaluation: true, styleTraits: true },
       orderBy: { sessionNumber: 'asc' },
     });
@@ -32,13 +40,14 @@ printPackageRouter.get('/print-package', async (_req, res) => {
     }
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename="taller-paquete-impresion.pdf"');
+    res.setHeader('Content-Disposition', `attachment; filename="taller-paquete-${student.id}.pdf"`);
 
     doc = new PDFDocument({ size: 'letter', margin: 54 });
     doc.pipe(res);
 
     // Portada
     doc.fontSize(26).text('Taller de Ilustración', { align: 'center' });
+    doc.fontSize(18).text(student.name, { align: 'center' });
     doc.moveDown();
     doc.fontSize(14).fillColor('#555555').text(`${submissions.length} sesiones completadas`, { align: 'center' });
     doc.fillColor('black');

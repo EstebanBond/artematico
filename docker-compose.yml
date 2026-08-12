@@ -92,7 +92,7 @@ services:
     mem_reservation: 96M
     # La API key NUNCA sale de aquí (regla dura, CLAUDE.md): por eso este servicio
     # NO usa env_file: .env como backend/bot de los otros proyectos del droplet —
-    # env_file inyectaría TODAS las variables del .env (incluidas FAMILY_PIN,
+    # env_file inyectaría TODAS las variables del .env (incluidas STUDENTS,
     # COOKIE_SECRET, POSTGRES_PASSWORD) en un contenedor que no debe tenerlas.
     # Sin puertos publicados: solo el bff le habla.
 
@@ -110,9 +110,10 @@ services:
       MAX_EVALS_PER_DAY: "3"
       ALLOWED_ORIGIN: https://taller.sikno.com.mx
       NODE_ENV: production
-      # PIN familiar compartido (nunca por cuenta individual) y secreto para firmar
-      # la cookie de sesión httpOnly que abre. Ninguno de los dos vive en el repo.
-      FAMILY_PIN: ${FAMILY_PIN:?falta FAMILY_PIN}
+      # Un PIN por hijo (nunca cuenta individual), formato slug:pin:Nombre separado
+      # por comas — ver students.ts. Secreto para firmar la cookie de sesión httpOnly
+      # que abre cada PIN. Ninguno de los dos vive en el repo.
+      STUDENTS: ${STUDENTS:?falta STUDENTS}
       COOKIE_SECRET: ${COOKIE_SECRET:?falta COOKIE_SECRET}
     volumes:
       - ./content:/content:ro            # en prod: montado desde el repo privado taller-content

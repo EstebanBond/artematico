@@ -62,10 +62,16 @@ uploadRouter.post('/upload', uploadRateLimit, (req, res) => {
       return;
     }
 
+    // studentId sale de la sesión autenticada (PIN), nunca del body del
+    // cliente — así nadie puede subir un dibujo a nombre de otro hermano
+    // manipulando el form. requireAuth ya lo garantiza antes de llegar aquí.
+    const studentId = req.studentId as string;
+
     // sessionNumber lo calcula el servidor, no lo manda el cliente: es un
-    // contador global de sesiones (1, 2, 3... a lo largo de las 40 del curso) y
-    // el PWA no tiene forma de saber cuántas van sin duplicar lógica de negocio.
-    const sessionNumberInt = (await prisma.submission.count()) + 1;
+    // contador por estudiante (1, 2, 3... a lo largo de las 40 del curso, cada
+    // hermano con su propia numeración) y el PWA no tiene forma de saberlo sin
+    // duplicar lógica de negocio.
+    const sessionNumberInt = (await prisma.submission.count({ where: { studentId } })) + 1;
 
     // objectKey determinístico a partir de la idempotency key: si dos requests
     // concurrentes con la MISMA key llegan a escribir el archivo, escriben al
@@ -83,6 +89,7 @@ uploadRouter.post('/upload', uploadRateLimit, (req, res) => {
         data: {
           idempotencyKey,
           objectKey,
+          studentId,
           sessionNumber: sessionNumberInt,
           lessonId,
         },

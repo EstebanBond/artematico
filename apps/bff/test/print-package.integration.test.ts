@@ -20,7 +20,7 @@ beforeAll(async () => {
 
   const databaseUrl = `postgresql://taller:test@${container.getHost()}:${container.getMappedPort(5432)}/taller_test`;
   process.env.DATABASE_URL = databaseUrl;
-  process.env.FAMILY_PIN = 'test-pin-0000';
+  process.env.STUDENTS = 'test:test-pin-0000:Test';
   process.env.COOKIE_SECRET = 'test-cookie-secret';
 
   execSync('npx prisma migrate deploy', {
@@ -49,13 +49,18 @@ afterAll(async () => {
 });
 
 describe('GET /print-package', () => {
-  it('sin sesiones evaluadas devuelve 404', async () => {
+  it('sin studentId devuelve 400', async () => {
     const res = await agent.get('/print-package');
+    expect(res.status).toBe(400);
+  });
+
+  it('sin sesiones evaluadas devuelve 404', async () => {
+    const res = await agent.get('/print-package?studentId=test');
     expect(res.status).toBe(404);
   });
 
   it('sin autenticación devuelve 401', async () => {
-    const res = await request(app).get('/print-package');
+    const res = await request(app).get('/print-package?studentId=test');
     expect(res.status).toBe(401);
   });
 
@@ -76,6 +81,7 @@ describe('GET /print-package', () => {
       data: {
         idempotencyKey: 'print-package-test-001',
         objectKey: 'submissions/print-package-test-001.jpg',
+        studentId: 'test',
         sessionNumber: 1,
         lessonId: lesson.id,
         status: 'evaluated',
@@ -121,7 +127,7 @@ describe('GET /print-package', () => {
       ],
     });
 
-    const res = await agent.get('/print-package').buffer(true).parse((response, callback) => {
+    const res = await agent.get('/print-package?studentId=test').buffer(true).parse((response, callback) => {
       const chunks: Buffer[] = [];
       response.on('data', (chunk: Buffer) => chunks.push(chunk));
       response.on('end', () => callback(null, Buffer.concat(chunks)));

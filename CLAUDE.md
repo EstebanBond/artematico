@@ -27,11 +27,14 @@ estén verdes.** Si detectas que una petición mezcla ambos tracks, dilo y prop�
 - No hagas push a `main`. Rama por rebanada, PR, CI verde.
 - Los dibujos de Jorge y el golden set **nunca** entran a este repo (es público).
   Viven en el repo privado `taller-content`, montado como volumen en runtime.
-- **Acceso por PIN familiar compartido, no por cuenta individual.** Ni Jorge ni su papá
-  capturan nombre, correo o contraseña personal. Un solo PIN/passphrase vive en env var
-  (nunca en el repo), lo verifica el bff, y abre una sesión de cookie httpOnly. Cero datos
-  de identidad de un menor se capturan para autenticarlo — es la base de privacidad del
-  Track A y no se negocia hasta que el Track B (SaaS multi-familia) rediseñe identidad.
+- **Acceso por PIN, no por cuenta individual.** Ni Jorge ni su papá capturan nombre,
+  correo o contraseña personal. Uno o más PINs (uno por hijo — `Jorge`, `Georgina`, etc.)
+  viven en la variable de entorno `STUDENTS` (nunca en el repo), los verifica el bff, y
+  cada uno abre una sesión de cookie httpOnly ligada a ese estudiante. Sigue sin haber
+  usuario/contraseña ni recuperación — un PIN más no es una cuenta. Cero datos de
+  identidad de un menor (nombre completo, correo, teléfono) se capturan para
+  autenticarlo — es la base de privacidad del Track A y no se negocia hasta que el
+  Track B (SaaS multi-familia) rediseñe identidad.
 
 ## Invariantes pedagógicos (son requisitos de producto, no sugerencias)
 

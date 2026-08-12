@@ -51,7 +51,10 @@ lógica real vive en el workflow, comentada ahí también.
 
 - El repo debe estar clonado en `DROPLET_APP_DIR`, con su propio `.env`
   conteniendo (además de lo que ya pide `docker-compose.yml`:
-  `POSTGRES_PASSWORD`, `ANTHROPIC_API_KEY`, `FAMILY_PIN`, `COOKIE_SECRET`):
+  `POSTGRES_PASSWORD`, `ANTHROPIC_API_KEY`, `STUDENTS`, `COOKIE_SECRET`).
+  `STUDENTS` es `slug:pin:Nombre` separado por comas, uno por hijo (ej.
+  `jorge:1234:Jorge,georgina:5678:Georgina`) — agregar o quitar un
+  estudiante es editar esta variable y reiniciar el contenedor `bff`.
   - `GHCR_OWNER` — el owner/org de GitHub bajo el que se publican las imágenes
     (normalmente el usuario dueño del repo). El workflow también lo agrega solo
     la primera vez que despliega, pero es más simple dejarlo puesto desde antes.

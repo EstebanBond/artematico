@@ -18,6 +18,7 @@ type Lesson {
   papel: String!
   consigna: String!
   criteriosFoco: [String!]!
+  materialesExtra: [String!]!
   videoUrl: String
 }
 
@@ -75,32 +76,50 @@ enum Semaforo {
   rojo
 }
 
-type CompraPendiente {
+type MaterialItem {
   id: ID!
   item: String!
   critical: Boolean!
-  purchaseByDate: String!
-  semaforo: Semaforo!
+  week: Int
+  purchaseByDate: String
+  semaforo: Semaforo
   notas: String
+  comprada: Boolean!
 }
 
 type BanderaEscalada {
   submissionId: ID!
+  studentId: ID!
+  studentName: String!
   sessionNumber: Int!
   lessonTema: String!
   texto: String!
   createdAt: String!
 }
 
+type Estudiante {
+  id: ID!
+  name: String!
+}
+
+type PaqueteEstudiante {
+  studentId: ID!
+  studentName: String!
+  disponible: Boolean!
+}
+
 type ParentPanel {
+  estudiantes: [Estudiante!]!
+  paquetes: [PaqueteEstudiante!]!
   banderas: [BanderaEscalada!]!
-  comprasPendientes: [CompraPendiente!]!
+  materiales: [MaterialItem!]!
 }
 
 type Query {
   today: TodayResult!
   submission(id: ID!): Submission
-  # Mismo PIN familiar que todo lo demás — no hay credencial separada de padre.
+  # Mismo PIN (uno por hijo) que todo lo demás — no hay credencial separada de padre.
+  # El panel es una vista familiar: no filtra por quién inició sesión.
   parentPanel: ParentPanel!
 }
 
@@ -109,4 +128,5 @@ type Mutation {
   # con status "queued". El cliente hace polling de `submission(id)` hasta que
   # el status llegue a "evaluated" o "failed".
   submitForEvaluation(submissionId: ID!, ratings: [CriterioRatingInput!]!): Submission!
+  marcarMaterial(id: ID!, comprada: Boolean!): MaterialItem!
 }

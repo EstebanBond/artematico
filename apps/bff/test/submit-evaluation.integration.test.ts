@@ -37,7 +37,7 @@ beforeAll(async () => {
   const databaseUrl = `postgresql://taller:test@${pgContainer.getHost()}:${pgContainer.getMappedPort(5432)}/taller_test`;
   process.env.DATABASE_URL = databaseUrl;
   process.env.REDIS_URL = `redis://${redisContainer.getHost()}:${redisContainer.getMappedPort(6379)}`;
-  process.env.FAMILY_PIN = 'test-pin-0000';
+  process.env.STUDENTS = 'test:test-pin-0000:Test';
   process.env.COOKIE_SECRET = 'test-cookie-secret';
 
   uploadDir = await fs.mkdtemp(path.join(os.tmpdir(), 'taller-submit-eval-uploads-'));
@@ -119,7 +119,7 @@ describe('submitForEvaluation mutation', () => {
     });
 
     const submission = await prisma.submission.create({
-      data: { idempotencyKey: 'no-block-test-001', objectKey: 'submissions/no-block-test-001.jpg', sessionNumber: 1, lessonId: lesson.id },
+      data: { idempotencyKey: 'no-block-test-001', objectKey: 'submissions/no-block-test-001.jpg', studentId: 'test', sessionNumber: 1, lessonId: lesson.id },
     });
 
     const objectPath = path.join(uploadDir, submission.objectKey);
@@ -154,7 +154,7 @@ describe('submitForEvaluation mutation', () => {
     });
 
     const submission = await prisma.submission.create({
-      data: { idempotencyKey: 'polling-test-001', objectKey: 'submissions/polling-test-001.jpg', sessionNumber: 1, lessonId: lesson.id },
+      data: { idempotencyKey: 'polling-test-001', objectKey: 'submissions/polling-test-001.jpg', studentId: 'test', sessionNumber: 1, lessonId: lesson.id },
     });
 
     const objectPath = path.join(uploadDir, submission.objectKey);
@@ -229,7 +229,7 @@ describe('submitForEvaluation mutation', () => {
     });
 
     const submission = await prisma.submission.create({
-      data: { idempotencyKey: 'double-submit-test-001', objectKey: 'submissions/double-submit-test-001.jpg', sessionNumber: 1, lessonId: lesson.id },
+      data: { idempotencyKey: 'double-submit-test-001', objectKey: 'submissions/double-submit-test-001.jpg', studentId: 'test', sessionNumber: 1, lessonId: lesson.id },
     });
 
     const objectPath = path.join(uploadDir, submission.objectKey);
@@ -296,10 +296,10 @@ describe('submitForEvaluation mutation', () => {
 
     // Crear dos submissions distintos
     const submission1 = await prisma.submission.create({
-      data: { idempotencyKey: 'limit-test-001', objectKey: 'submissions/limit-test-001.jpg', sessionNumber: 1, lessonId: lesson.id },
+      data: { idempotencyKey: 'limit-test-001', objectKey: 'submissions/limit-test-001.jpg', studentId: 'test', sessionNumber: 1, lessonId: lesson.id },
     });
     const submission2 = await prisma.submission.create({
-      data: { idempotencyKey: 'limit-test-002', objectKey: 'submissions/limit-test-002.jpg', sessionNumber: 2, lessonId: lesson.id },
+      data: { idempotencyKey: 'limit-test-002', objectKey: 'submissions/limit-test-002.jpg', studentId: 'test', sessionNumber: 2, lessonId: lesson.id },
     });
 
     // Escribir los archivos

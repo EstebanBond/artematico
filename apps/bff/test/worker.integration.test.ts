@@ -106,7 +106,7 @@ describe('BullMQ worker: camino feliz', () => {
     });
 
     const submission = await prisma.submission.create({
-      data: { idempotencyKey: 'worker-test-001', objectKey: 'submissions/worker-test-001.jpg', sessionNumber: 1, lessonId: lesson.id },
+      data: { idempotencyKey: 'worker-test-001', objectKey: 'submissions/worker-test-001.jpg', studentId: 'test', sessionNumber: 1, lessonId: lesson.id },
     });
 
     const objectPath = path.join(uploadDir, submission.objectKey);

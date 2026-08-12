@@ -13,6 +13,7 @@ export const TODAY_QUERY = /* GraphQL */ `
         papel
         consigna
         criteriosFoco
+        materialesExtra
         videoUrl
       }
       recentSubmissions {
@@ -58,8 +59,19 @@ export const SUBMIT_FOR_EVALUATION_MUTATION = /* GraphQL */ `
 export const PARENT_PANEL_QUERY = /* GraphQL */ `
   query ParentPanelData {
     parentPanel {
-      banderas { submissionId sessionNumber lessonTema texto createdAt }
-      comprasPendientes { id item critical purchaseByDate semaforo notas }
+      estudiantes { id name }
+      paquetes { studentId studentName disponible }
+      banderas { submissionId studentId studentName sessionNumber lessonTema texto createdAt }
+      materiales { id item critical week purchaseByDate semaforo notas comprada }
+    }
+  }
+`;
+
+export const MARCAR_MATERIAL_MUTATION = /* GraphQL */ `
+  mutation MarcarMaterial($id: ID!, $comprada: Boolean!) {
+    marcarMaterial(id: $id, comprada: $comprada) {
+      id
+      comprada
     }
   }
 `;

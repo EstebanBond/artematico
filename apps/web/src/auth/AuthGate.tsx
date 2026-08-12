@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import mascotFull from '../assets/mascot-full.png';
+import { StudentProvider, type StudentInfo } from './StudentContext';
 
 type GateStatus = 'checking' | 'unauthenticated' | 'authenticated';
 
@@ -9,6 +10,7 @@ interface AuthGateProps {
 
 export function AuthGate({ children }: AuthGateProps) {
   const [status, setStatus] = useState<GateStatus>('checking');
+  const [student, setStudent] = useState<StudentInfo | null>(null);
   const [pin, setPin] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -17,9 +19,14 @@ export function AuthGate({ children }: AuthGateProps) {
     let cancelled = false;
     fetch('/auth/status', { credentials: 'include' })
       .then((res) => res.json())
-      .then((body: { authenticated: boolean }) => {
+      .then((body: { authenticated: boolean; studentId?: string; studentName?: string }) => {
         if (cancelled) return;
-        setStatus(body.authenticated ? 'authenticated' : 'unauthenticated');
+        if (body.authenticated && body.studentId && body.studentName) {
+          setStudent({ studentId: body.studentId, studentName: body.studentName });
+          setStatus('authenticated');
+        } else {
+          setStatus('unauthenticated');
+        }
       })
       .catch(() => {
         if (!cancelled) setStatus('unauthenticated');
@@ -41,6 +48,8 @@ export function AuthGate({ children }: AuthGateProps) {
         body: JSON.stringify({ pin }),
       });
       if (res.ok) {
+        const body: { studentId: string; studentName: string } = await res.json();
+        setStudent({ studentId: body.studentId, studentName: body.studentName });
         setStatus('authenticated');
         setPin('');
       } else {
@@ -68,7 +77,7 @@ export function AuthGate({ children }: AuthGateProps) {
           <img className="gate-mascot" src={mascotFull} alt="Un robot amigable pintando un arcoíris con un pincel" />
           <form className="pin-form" onSubmit={handleSubmit}>
             <h1>Taller de Ilustración</h1>
-            <label htmlFor="pin-input">PIN familiar</label>
+            <label htmlFor="pin-input">Tu PIN</label>
             <input
               id="pin-input"
               type="password"
@@ -88,5 +97,5 @@ export function AuthGate({ children }: AuthGateProps) {
     );
   }
 
-  return <>{children}</>;
+  return <StudentProvider value={student}>{children}</StudentProvider>;
 }

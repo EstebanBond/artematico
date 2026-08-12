@@ -4,6 +4,8 @@ import { TODAY_QUERY } from '../api/queries';
 import type { TodayResult } from '../api/types';
 import { MascotBadge } from '../components/MascotBadge';
 import { sessionColorStyle } from '../theme/palette';
+import { friendlyTechnique, friendlyPapel, friendlyCriterio } from '../content/friendlyLabels';
+import { useStudent } from '../auth/StudentContext';
 
 interface HomeProps {
   onNavigate: (screen: 'submit' | 'estudio-libre' | 'parent-panel') => void;
@@ -11,6 +13,7 @@ interface HomeProps {
 }
 
 export function Home({ onNavigate, onLessonLoaded }: HomeProps) {
+  const { studentName } = useStudent();
   const [data, setData] = useState<TodayResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -68,24 +71,37 @@ export function Home({ onNavigate, onLessonLoaded }: HomeProps) {
     <div className="screen" style={sessionColorStyle(lesson.week, lesson.dayIndex)}>
       <header className="screen-header">
         <MascotBadge />
-        <h1>Taller de Ilustración</h1>
+        <div>
+          <h1>Taller de Ilustración</h1>
+          <p className="greeting">¡Hola, {studentName}!</p>
+        </div>
       </header>
       <section className="card accent-card">
-        <h2>{lesson.technique}</h2>
+        <h2>{friendlyTechnique(lesson.technique)}</h2>
         <p>
           <strong>Tema:</strong> {lesson.tema}
         </p>
         <p>
-          <strong>Papel:</strong> {lesson.papel}
+          <strong>Papel:</strong> {friendlyPapel(lesson.papel)}
         </p>
+        {lesson.materialesExtra.length > 0 && (
+          <div>
+            <strong>Qué más vas a necesitar:</strong>
+            <ul>
+              {lesson.materialesExtra.map((material) => (
+                <li key={material}>{material}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         <p>
-          <strong>Consigna:</strong> {lesson.consigna}
+          <strong>Objetivo de la lección:</strong> {lesson.consigna}
         </p>
         <div>
-          <strong>Criterios en foco:</strong>
+          <strong>Criterios para observar avance:</strong>
           <ul>
             {lesson.criteriosFoco.map((criterio) => (
-              <li key={criterio}>{criterio}</li>
+              <li key={criterio}>{friendlyCriterio(criterio)}</li>
             ))}
           </ul>
         </div>
@@ -100,10 +116,10 @@ export function Home({ onNavigate, onLessonLoaded }: HomeProps) {
 
       <div className="button-row">
         <button type="button" onClick={() => onNavigate('submit')}>
-          Enviar mi dibujo
+          1. Enviar mi dibujo
         </button>
         <button type="button" className="secondary" onClick={() => onNavigate('estudio-libre')}>
-          Estudio libre
+          2. Estudio libre
         </button>
       </div>
 

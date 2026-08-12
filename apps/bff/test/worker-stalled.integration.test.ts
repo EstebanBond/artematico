@@ -115,6 +115,7 @@ describe('BullMQ worker: matar el worker re-encola (stalled job)', () => {
       data: {
         idempotencyKey: 'stalled-test-001',
         objectKey: 'submissions/stalled-test-001.jpg',
+        studentId: 'test',
         sessionNumber: 1,
         lessonId: lesson.id,
       },

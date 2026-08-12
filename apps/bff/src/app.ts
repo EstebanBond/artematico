@@ -49,7 +49,9 @@ export async function createApp(): Promise<Express> {
     '/graphql',
     cors({ origin: allowedOrigin, credentials: true }),
     requireAuth,
-    expressMiddleware(apolloServer),
+    expressMiddleware(apolloServer, {
+      context: async ({ req }) => ({ studentId: req.studentId as string }),
+    }),
   );
 
   return app;

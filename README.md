@@ -53,8 +53,9 @@ runtime, el bff no cambia.
 
 - **Autoevaluación bloqueante**: requisito de producto, no detalle de UI — el
   niño no puede pedir feedback sin antes calificarse a sí mismo.
-- **Acceso por PIN familiar, no por cuenta**: nadie captura nombre, correo ni
-  contraseña de un menor. Un PIN compartido abre una sesión de cookie httpOnly.
+- **Acceso por PIN, no por cuenta**: nadie captura nombre, correo ni
+  contraseña de un menor. Un PIN por hijo abre una sesión de cookie httpOnly
+  ligada a ese estudiante — progreso independiente, sin usuario/contraseña.
 - **Idempotency key** en la subida de imágenes: un doble tap en móvil no crea un
   registro duplicado — verificado con Postgres real (Testcontainers), no mocks.
 - **Máquina de estados con recuperación real**: `uploaded → queued → evaluating
@@ -72,7 +73,7 @@ runtime, el bff no cambia.
 Requiere Docker, Node 22, pnpm, y `uv` para el servicio de evaluación.
 
 ```bash
-cp .env.example .env   # completa POSTGRES_PASSWORD, ANTHROPIC_API_KEY, FAMILY_PIN, COOKIE_SECRET
+cp .env.example .env   # completa POSTGRES_PASSWORD, ANTHROPIC_API_KEY, STUDENTS, COOKIE_SECRET
 pnpm install
 docker compose up -d   # levanta los 5 servicios; build local vía docker-compose.override.yml
 ```
@@ -92,8 +93,8 @@ uv run --directory services/evaluator pytest
 Este repositorio es público; el contenido no. Las fotos de los dibujos, el
 golden set de evaluación y cualquier dato del menor viven en un repositorio
 privado aparte, montado como volumen en runtime — nunca se versionan aquí. El
-acceso a la app es por PIN familiar compartido, sin captura de identidad de
-ningún menor.
+acceso a la app es por PIN — uno por hijo, no cuenta individual — sin captura
+de identidad de ningún menor.
 
 ## Estado del proyecto
 

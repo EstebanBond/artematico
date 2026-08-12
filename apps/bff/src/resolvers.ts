@@ -1,11 +1,46 @@
 import { GraphQLError } from 'graphql';
 import { prisma } from './db.js';
 import { enqueueEvaluation } from './queue.js';
-import { getComprasPendientes } from './curriculum.js';
+import { getStudents, findById } from './students.js';
+
+interface GraphQLContext {
+  studentId: string;
+}
+
+type Semaforo = 'verde' | 'amarillo' | 'rojo';
+
+function computeSemaforo(purchaseByDate: Date | null, comprada: boolean): Semaforo | null {
+  if (comprada || !purchaseByDate) return null;
+  const daysUntil = Math.ceil((purchaseByDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  if (daysUntil <= 3) return 'rojo';
+  if (daysUntil <= 10) return 'amarillo';
+  return 'verde';
+}
+
+function toMaterialItem(m: {
+  id: string;
+  item: string;
+  critical: boolean;
+  week: number | null;
+  purchaseByDate: Date | null;
+  notas: string | null;
+  comprada: boolean;
+}) {
+  return {
+    id: m.id,
+    item: m.item,
+    critical: m.critical,
+    week: m.week,
+    purchaseByDate: m.purchaseByDate ? m.purchaseByDate.toISOString().split('T')[0] : null,
+    semaforo: computeSemaforo(m.purchaseByDate, m.comprada),
+    notas: m.notas,
+    comprada: m.comprada,
+  };
+}
 
 export const resolvers = {
   Query: {
-    async today() {
+    async today(_parent: unknown, _args: unknown, context: GraphQLContext) {
       const lessons = await prisma.lesson.findMany({
         orderBy: [{ week: 'asc' }, { dayIndex: 'asc' }],
       });
@@ -15,14 +50,15 @@ export const resolvers = {
       }
 
       // Simplificación temporal: la "lección de hoy" es la primera en la secuencia
-      // (ordenada por week, dayIndex) que aún no tiene un Submission evaluated.
-      // Si todas están completas, se devuelve la última. El agendamiento real por
-      // fecha de calendario (content/curriculum.yaml meta.start_date) se resuelve
-      // en una rebanada futura cuando se integre el contenido real del curso.
+      // (ordenada por week, dayIndex) que aún no tiene un Submission evaluated DE
+      // ESTE estudiante — cada hermano avanza por su cuenta sobre el mismo
+      // currículo compartido. Si todas están completas, se devuelve la última. El
+      // agendamiento real por fecha de calendario (content/curriculum.yaml
+      // meta.start_date) se resuelve en una rebanada futura.
       let currentLesson = lessons[lessons.length - 1];
       for (const lesson of lessons) {
         const evaluatedCount = await prisma.submission.count({
-          where: { lessonId: lesson.id, status: 'evaluated' },
+          where: { lessonId: lesson.id, status: 'evaluated', studentId: context.studentId },
         });
         if (evaluatedCount === 0) {
           currentLesson = lesson;
@@ -31,6 +67,7 @@ export const resolvers = {
       }
 
       const recentSubmissions = await prisma.submission.findMany({
+        where: { studentId: context.studentId },
         orderBy: { createdAt: 'desc' },
         take: 3,
       });
@@ -46,8 +83,10 @@ export const resolvers = {
         })),
       };
     },
-    async submission(_parent: unknown, args: { id: string }) {
-      return prisma.submission.findUnique({ where: { id: args.id } });
+    async submission(_parent: unknown, args: { id: string }, context: GraphQLContext) {
+      const submission = await prisma.submission.findUnique({ where: { id: args.id } });
+      if (!submission || submission.studentId !== context.studentId) return null;
+      return submission;
     },
     async parentPanel() {
       const evaluationsConBandera = await prisma.evaluation.findMany({
@@ -58,24 +97,54 @@ export const resolvers = {
 
       const banderas = evaluationsConBandera.map((e) => ({
         submissionId: e.submissionId,
+        studentId: e.submission.studentId,
+        studentName: findById(e.submission.studentId)?.name ?? e.submission.studentId,
         sessionNumber: e.submission.sessionNumber,
         lessonTema: e.submission.lesson.tema,
         texto: e.banderaParaPapa as string,
         createdAt: e.createdAt.toISOString(),
       }));
 
-      const comprasPendientes = getComprasPendientes();
+      const materialItems = await prisma.materialItem.findMany({
+        orderBy: [{ week: 'asc' }, { critical: 'desc' }, { purchaseByDate: 'asc' }],
+      });
 
-      return { banderas, comprasPendientes };
+      const estudiantes = getStudents().map((s) => ({ id: s.id, name: s.name }));
+      const paquetes = await Promise.all(
+        estudiantes.map(async (s) => ({
+          studentId: s.id,
+          studentName: s.name,
+          disponible: (await prisma.submission.count({ where: { status: 'evaluated', studentId: s.id } })) > 0,
+        })),
+      );
+
+      return {
+        banderas,
+        materiales: materialItems.map(toMaterialItem),
+        estudiantes,
+        paquetes,
+      };
     },
   },
   Mutation: {
+    async marcarMaterial(_parent: unknown, args: { id: string; comprada: boolean }) {
+      try {
+        const material = await prisma.materialItem.update({
+          where: { id: args.id },
+          data: { comprada: args.comprada },
+        });
+        return toMaterialItem(material);
+      } catch {
+        throw new GraphQLError('Material no encontrado');
+      }
+    },
     async submitForEvaluation(
       _parent: unknown,
       args: { submissionId: string; ratings: Array<{ criterio: string; nivel: number }> },
+      context: GraphQLContext,
     ) {
       const submission = await prisma.submission.findUnique({ where: { id: args.submissionId } });
-      if (!submission) {
+      if (!submission || submission.studentId !== context.studentId) {
         throw new GraphQLError('Submission no encontrado');
       }
       if (submission.status !== 'uploaded') {
@@ -84,14 +153,17 @@ export const resolvers = {
         );
       }
 
-      // Invariante de producto: máximo N evaluaciones por día (N = MAX_EVALS_PER_DAY,
-      // default 3). Cuenta envíos de HOY que ya entraron a la cola o más adelante
-      // (no cuenta los que solo están en 'uploaded' sin autoevaluación todavía).
+      // Invariante de producto: máximo N evaluaciones por día por estudiante
+      // (N = MAX_EVALS_PER_DAY, default 3) — cada hermano tiene su propio cupo,
+      // no se comparte. Cuenta envíos de HOY que ya entraron a la cola o más
+      // adelante (no cuenta los que solo están en 'uploaded' sin autoevaluación
+      // todavía).
       const startOfDay = new Date();
       startOfDay.setHours(0, 0, 0, 0);
       const maxPerDay = parseInt(process.env.MAX_EVALS_PER_DAY ?? '3', 10);
       const countToday = await prisma.submission.count({
         where: {
+          studentId: context.studentId,
           createdAt: { gte: startOfDay },
           status: { in: ['queued', 'evaluating', 'evaluated'] },
         },
