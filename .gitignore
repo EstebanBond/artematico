@@ -21,6 +21,9 @@ packages/shared/src/generated/
 # Salida de `pnpm evals` — la sube CI como artifact, no se versiona
 evals-report.json
 
+# Documento de estudio personal — no es parte del proyecto, no se versiona
+STACK.md
+
 # Python (services/evaluator)
 .venv/
 __pycache__/
