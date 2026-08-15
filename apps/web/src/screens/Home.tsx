@@ -6,6 +6,7 @@ import { MascotBadge } from '../components/MascotBadge';
 import { sessionColorStyle } from '../theme/palette';
 import { friendlyTechnique, friendlyPapel, friendlyCriterio } from '../content/friendlyLabels';
 import { useStudent } from '../auth/StudentContext';
+import { pushSupported, subscribeToReminders } from '../notifications';
 
 interface HomeProps {
   onNavigate: (screen: 'submit' | 'estudio-libre' | 'parent-panel') => void;
@@ -17,6 +18,8 @@ export function Home({ onNavigate, onLessonLoaded }: HomeProps) {
   const [data, setData] = useState<TodayResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reminderStatus, setReminderStatus] = useState<'idle' | 'activating' | 'activo' | 'error'>('idle');
+  const [reminderError, setReminderError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,6 +71,18 @@ export function Home({ onNavigate, onLessonLoaded }: HomeProps) {
   async function handleLogout() {
     await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
     window.location.reload();
+  }
+
+  async function handleActivateReminders() {
+    setReminderStatus('activating');
+    setReminderError(null);
+    try {
+      await subscribeToReminders();
+      setReminderStatus('activo');
+    } catch (err: unknown) {
+      setReminderStatus('error');
+      setReminderError(err instanceof Error ? err.message : 'No se pudo activar');
+    }
   }
 
   const { lesson, recentSubmissions } = data;
@@ -144,6 +159,15 @@ export function Home({ onNavigate, onLessonLoaded }: HomeProps) {
       <button type="button" className="link-button" onClick={() => onNavigate('parent-panel')}>
         Panel de papá
       </button>
+
+      {pushSupported() && reminderStatus !== 'activo' && (
+        <button type="button" className="link-button" onClick={handleActivateReminders} disabled={reminderStatus === 'activating'}>
+          {reminderStatus === 'activating' ? 'Activando...' : 'Activar recordatorio diario'}
+        </button>
+      )}
+      {reminderStatus === 'activo' && <p className="muted-text">Recordatorio diario activado ✓</p>}
+      {reminderStatus === 'error' && reminderError && <p className="error-text">{reminderError}</p>}
+
       <button type="button" className="link-button" onClick={handleLogout}>
         Cerrar sesión {studentName} (para que otro hermano entre con su PIN)
       </button>

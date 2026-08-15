@@ -47,6 +47,15 @@ model MaterialItem {
   updatedAt      DateTime  @updatedAt
 }
 
+model PushSubscription {
+  id        String   @id @default(cuid())
+  studentId String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+}
+
 model Submission {
   id             String            @id @default(cuid())
   idempotencyKey String            @unique

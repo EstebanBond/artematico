@@ -7,6 +7,12 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // injectManifest (en vez del generateSW por default) porque el
+      // recordatorio diario necesita código propio de service worker
+      // (eventos push / notificationclick) — ver src/sw.ts.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       includeAssets: ['icon-192.png', 'icon-512.png', 'apple-touch-icon.png'],
       manifest: {
         name: 'Taller de Ilustración',
@@ -28,6 +34,7 @@ export default defineConfig({
       '/graphql': 'http://localhost:4000',
       '/upload': 'http://localhost:4000',
       '/auth': 'http://localhost:4000',
+      '/push': 'http://localhost:4000',
     },
   },
 });

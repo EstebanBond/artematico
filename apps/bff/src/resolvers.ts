@@ -2,6 +2,7 @@ import { GraphQLError } from 'graphql';
 import { prisma } from './db.js';
 import { enqueueEvaluation } from './queue.js';
 import { getStudents, findById } from './students.js';
+import { startOfMexicoCityDay } from './timezone.js';
 
 interface GraphQLContext {
   studentId: string;
@@ -155,11 +156,10 @@ export const resolvers = {
 
       // Invariante de producto: máximo N evaluaciones por día por estudiante
       // (N = MAX_EVALS_PER_DAY, default 3) — cada hermano tiene su propio cupo,
-      // no se comparte. Cuenta envíos de HOY que ya entraron a la cola o más
-      // adelante (no cuenta los que solo están en 'uploaded' sin autoevaluación
-      // todavía).
-      const startOfDay = new Date();
-      startOfDay.setHours(0, 0, 0, 0);
+      // no se comparte. Cuenta envíos de HOY (hora de Ciudad de México, no la
+      // hora local del contenedor) que ya entraron a la cola o más adelante
+      // (no cuenta los que solo están en 'uploaded' sin autoevaluación todavía).
+      const startOfDay = startOfMexicoCityDay();
       const maxPerDay = parseInt(process.env.MAX_EVALS_PER_DAY ?? '3', 10);
       const countToday = await prisma.submission.count({
         where: {

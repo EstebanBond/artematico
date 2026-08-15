@@ -115,6 +115,12 @@ services:
       # que abre cada PIN. Ninguno de los dos vive en el repo.
       STUDENTS: ${STUDENTS:?falta STUDENTS}
       COOKIE_SECRET: ${COOKIE_SECRET:?falta COOKIE_SECRET}
+      # Recordatorio diario por Web Push — VAPID_PUBLIC_KEY no es secreta (el
+      # navegador la necesita para suscribirse), pero se agrupa aquí con las
+      # otras porque las tres se generan juntas y una vez. Nunca en el repo.
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:?falta VAPID_PUBLIC_KEY}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:?falta VAPID_PRIVATE_KEY}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:?falta VAPID_SUBJECT}
     volumes:
       - ./content:/content:ro            # en prod: montado desde el repo privado taller-content
       - uploads:/uploads

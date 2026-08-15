@@ -1,5 +1,7 @@
 import { createApp } from './app.js';
 import { startEvaluationWorker } from './worker.js';
+import { startReminderWorker } from './reminderWorker.js';
+import { registerReminderSchedules } from './reminderQueue.js';
 
 const PORT = 4000;
 
@@ -10,3 +12,7 @@ createApp().then((app) => {
 });
 
 startEvaluationWorker();
+startReminderWorker();
+registerReminderSchedules().catch((err) => {
+  console.error('Error registrando el horario de recordatorios:', err);
+});

@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { uploadRouter } from './upload.js';
 import { printPackageRouter } from './printPackage.js';
+import { pushRouter } from './push.js';
 import { resolvers } from './resolvers.js';
 import { authRouter, requireAuth } from './auth.js';
 
@@ -38,6 +39,7 @@ export async function createApp(): Promise<Express> {
   // proyecto): sin cookie de sesión válida, nada de la app funciona.
   app.use(requireAuth, uploadRouter);
   app.use(requireAuth, printPackageRouter);
+  app.use(requireAuth, pushRouter);
 
   const apolloServer = new ApolloServer({ typeDefs, resolvers });
   await apolloServer.start();
