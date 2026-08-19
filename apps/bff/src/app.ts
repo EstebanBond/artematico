@@ -18,6 +18,14 @@ const typeDefs = readFileSync(path.join(__dirname, 'schema.graphql'), 'utf-8');
 export async function createApp(): Promise<Express> {
   const app = express();
 
+  // El tráfico real llega vía Traefik -> nginx (web) -> bff — sin esto,
+  // express-rate-limit no confía en el X-Forwarded-For que pone Traefik y
+  // termina agrupando a todos los usuarios bajo una sola IP (la del
+  // contenedor `web`). Se confía en las redes privadas de Docker (por donde
+  // solo puede llegar tráfico interno, nunca directo de internet), no en un
+  // número fijo de saltos.
+  app.set('trust proxy', 'loopback, linklocal, uniquelocal');
+
   const cookieSecret = process.env.COOKIE_SECRET;
   if (!cookieSecret) {
     throw new Error('Falta COOKIE_SECRET — requerido para firmar la cookie de sesión del PIN');

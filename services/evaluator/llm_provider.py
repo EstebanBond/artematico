@@ -61,10 +61,19 @@ class AnthropicProvider:
         that will never succeed."""
         client = anthropic.Anthropic(api_key=self.api_key)
 
+        # `temperature` ya no se manda: Anthropic la deprecó para los modelos
+        # nuevos (claude-sonnet-5 la rechaza con 400 "temperature is
+        # deprecated for this model") — mandarla tumbaba el 100% de las
+        # evaluaciones. El modelo usa su temperatura por defecto; sigue
+        # habiendo trazabilidad vía el hash del prompt (X-Prompt-Sha256).
+        # max_tokens sube de 1500 a 4096: este modelo a veces antepone un
+        # bloque de razonamiento (ThinkingBlock) antes de la respuesta, y con
+        # 1500 el presupuesto se agotaba a mitad del razonamiento sin llegar
+        # a escribir el JSON — la respuesta llegaba sin ningún bloque de
+        # texto. 4096 deja margen de sobra para pensar + la respuesta.
         response = client.messages.create(
             model=self.model,
-            max_tokens=1500,
-            temperature=0,
+            max_tokens=4096,
             system=system_prompt,
             messages=[
                 {
@@ -86,7 +95,14 @@ class AnthropicProvider:
                 }
             ],
         )
-        return response.content[0].text
+        # No asumir que content[0] es el texto: este modelo puede anteponer
+        # un ThinkingBlock (su razonamiento interno) antes del TextBlock de
+        # verdad — response.content[0].text truena con
+        # "'ThinkingBlock' object has no attribute 'text'" cuando eso pasa.
+        for block in response.content:
+            if block.type == "text":
+                return block.text
+        raise ValueError("La respuesta de Claude no incluyó ningún bloque de texto")
 
 
 class FakeProvider:

@@ -68,9 +68,16 @@ async def evaluate(image: UploadFile = File(...), context: str = Form(...)):
     )
     image_b64 = base64.b64encode(jpeg_bytes).decode("ascii")
 
-    # Render prompt
+    # Render prompt. formato_ejemplo le da al modelo la estructura EXACTA de
+    # salida (mismo fixture que usa FakeProvider en tests) — sin esto, el
+    # prompt solo dice "válido contra rubric.schema.json" por nombre sin
+    # mostrárselo, y el modelo adivina nombres de campo (encontrado en
+    # producción: mandó "criterios_evaluados" en vez de "criterios_foco").
+    prompt_context = ctx.model_dump()
+    with open(rubric_dir() / "fixtures" / "valid-example.json", "r", encoding="utf-8") as f:
+        prompt_context["formato_ejemplo"] = f.read().strip()
     system_prompt, prompt_hash = render_prompt(
-        os.environ["PROMPT_PATH"], ctx.model_dump()
+        os.environ["PROMPT_PATH"], prompt_context
     )
 
     # Get provider and call

@@ -150,7 +150,9 @@ del droplet, no solo para este.
   secretos documentada.
 - El job de evals corre solo en `push` a ramas propias y en `workflow_dispatch`.
 - Rate limit y validación de tipo/tamaño en `/upload`. Solo JPEG/PNG/WebP, máx 12 MB.
-- `temperature: 0` y hash del prompt guardado en cada evaluación (trazabilidad).
+- Hash del prompt guardado en cada evaluación (trazabilidad). `temperature` ya
+  no se manda a la API — Anthropic la deprecó para los modelos nuevos
+  (rechazan la request con 400 si se incluye); el modelo usa su default.
 
 ## Rebanadas (una por PR, un criterio de aceptación cada una)
 

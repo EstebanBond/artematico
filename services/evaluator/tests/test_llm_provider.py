@@ -34,8 +34,11 @@ def _bad_request_error() -> anthropic.BadRequestError:
 
 
 def _fake_success_message() -> MagicMock:
+    # type="text" explícito: AnthropicProvider.evaluate ya no asume que
+    # content[0] es el texto (este modelo puede anteponer un ThinkingBlock),
+    # busca el primer bloque con type == "text".
     message = MagicMock()
-    message.content = [MagicMock(text='{"ok": true}')]
+    message.content = [MagicMock(type="text", text='{"ok": true}')]
     return message
 
 
