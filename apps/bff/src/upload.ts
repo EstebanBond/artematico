@@ -70,8 +70,11 @@ uploadRouter.post('/upload', uploadRateLimit, (req, res) => {
     // sessionNumber lo calcula el servidor, no lo manda el cliente: es un
     // contador por estudiante (1, 2, 3... a lo largo de las 40 del curso, cada
     // hermano con su propia numeración) y el PWA no tiene forma de saberlo sin
-    // duplicar lógica de negocio.
-    const sessionNumberInt = (await prisma.submission.count({ where: { studentId } })) + 1;
+    // duplicar lógica de negocio. Excluye 'failed': un intento que reventó por
+    // un bug del servidor (visto en producción: 9 seguidos por el bug de
+    // temperature) no es una sesión real de Jorge, no debe consumir un número.
+    const sessionNumberInt =
+      (await prisma.submission.count({ where: { studentId, status: { not: 'failed' } } })) + 1;
 
     // objectKey determinístico a partir de la idempotency key: si dos requests
     // concurrentes con la MISMA key llegan a escribir el archivo, escriben al
