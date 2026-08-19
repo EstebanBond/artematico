@@ -26,7 +26,12 @@ estén verdes.** Si detectas que una petición mezcla ambos tracks, dilo y prop�
 - No ejecutes `docker compose down -v` (borra la DB con los dibujos de Jorge).
 - No hagas push a `main`. Rama por rebanada, PR, CI verde.
 - Los dibujos de Jorge y el golden set **nunca** entran a este repo (es público).
-  Viven en el repo privado `taller-content`, montado como volumen en runtime.
+  Por ahora viven solo local en la máquina de desarrollo (`content/`, en
+  `.gitignore`) y se suben al droplet a mano por `scp` — ver `docs/DEPLOY.md`.
+  El plan original era un repo privado `taller-content` montado como volumen en
+  runtime; se pospuso a propósito (deuda técnica conocida, no un olvido) hasta que
+  de verdad haga falta — por eso el job `evals` en CI (que sí esperaba ese repo)
+  quedó solo en `workflow_dispatch`, sin disparo automático.
 - **Acceso por PIN, no por cuenta individual.** Ni Jorge ni su papá capturan nombre,
   correo o contraseña personal. Uno o más PINs (uno por hijo — `Jorge`, `Georgina`, etc.)
   viven en la variable de entorno `STUDENTS` (nunca en el repo), los verifica el bff, y
@@ -89,7 +94,7 @@ apps/bff              Express + Apollo Server + Prisma + BullMQ
 services/evaluator    FastAPI, stateless
 packages/rubric       rubric.schema.json + codegen (Zod + Pydantic)
 packages/shared       tipos generados de GraphQL
-content/              montado desde taller-content (privado) en runtime
+content/              privado, local + scp al droplet (no hay repo aparte todavía)
 prompts/              prompts versionados del evaluador
 infra/                nginx.conf (sirve la PWA estática y proxyea /graphql, /upload, /auth al bff)
 docs/                 DEPLOY.md (setup de CI/CD, rollback)

@@ -7,19 +7,17 @@
 #   - NO uses `pull_request_target` con checkout del código del fork (exfiltración conocida).
 #   - Los PRs externos corren solo lint/typecheck/test en ci.yml, sin secretos.
 #
-# El golden set vive en el repo PRIVADO taller-content y se clona con un token de solo
-# lectura. Nunca se sube a este repo: contiene dibujos de un menor.
+# El golden set viviría en un repo PRIVADO aparte (taller-content), clonado con un
+# token de solo lectura (CONTENT_REPO_TOKEN) — nunca se sube a este repo: contendría
+# dibujos de un menor. Ese repo privado y el token NUNCA se llegaron a crear (el
+# contenido real vive solo local en la máquina de desarrollo, se sube al droplet a
+# mano por scp — ver docs/DEPLOY.md). Por eso el trigger automático quedó quitado:
+# este job no puede correr hasta que exista ese repo + secreto. Queda disponible por
+# workflow_dispatch para cuando (si) se arma esa pieza.
 
 name: evals
 
 on:
-  push:
-    branches: ["main", "slice/**"]
-    paths:
-      - "prompts/**"
-      - "packages/rubric/**"
-      - "services/evaluator/**"
-      - ".github/workflows/evals.yml"
   workflow_dispatch:
     inputs:
       prompt_version:
